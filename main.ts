@@ -2,6 +2,7 @@ import {
   LocalBrowserProvider,
   runCarPartSearch,
 } from "./src/browser/car_part_browser.ts";
+import { provisionLightpandaForCurrentRuntime } from "./src/browser/lightpanda_browser_provider.ts";
 import { SpikeError } from "./src/types.ts";
 
 const endpoint = "/_dev/search-spike";
@@ -22,7 +23,10 @@ Deno.serve(async (request) => {
     return new Response("Not found", { status: 404 });
   }
   try {
-    return Response.json(await runCarPartSearch(new LocalBrowserProvider()));
+    const provider = url.searchParams.get("runtime") === "lightpanda"
+      ? await provisionLightpandaForCurrentRuntime()
+      : new LocalBrowserProvider();
+    return Response.json(await runCarPartSearch(provider));
   } catch (error) {
     const body = error instanceof SpikeError ? error.toJSON() : {
       error: { code: "UNEXPECTED_PAGE", message: "Unexpected spike failure" },

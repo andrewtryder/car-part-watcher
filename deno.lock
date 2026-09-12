@@ -34,6 +34,7 @@
     "npm:linkedom@0.18.12": "0.18.12",
     "npm:open@^10.2.0": "10.2.0",
     "npm:pg-connection-string@^2.14.0": "2.14.0",
+    "npm:playwright-core@1.58.2": "1.58.2",
     "npm:playwright@1.58.2": "1.58.2",
     "npm:superjson@^2.2.6": "2.2.6",
     "npm:temporal-polyfill@~0.3.2": "0.3.2",

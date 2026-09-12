@@ -22,7 +22,7 @@ export interface BrowserProvider {
   createSession(): Promise<BrowserSession>;
 }
 
-export class LocalBrowserProvider implements BrowserProvider {
+export class ChromeBrowserProvider implements BrowserProvider {
   constructor(
     private readonly headless = Deno.env.get("PLAYWRIGHT_HEADLESS") === "true",
   ) {}
@@ -45,6 +45,9 @@ export class LocalBrowserProvider implements BrowserProvider {
     return { context, close: () => browser.close() };
   }
 }
+
+/** @deprecated Use ChromeBrowserProvider. Kept while the temporary endpoint uses this name. */
+export const LocalBrowserProvider = ChromeBrowserProvider;
 
 const homeUrl = "https://www.car-part.com/";
 const representativeSearch: CarPartSearchRequest = {
@@ -115,12 +118,23 @@ async function submit(page: Page, selector: string) {
 export async function runCarPartSearch(
   provider: BrowserProvider,
   request = representativeSearch,
+  onStage: (stage: string) => void = () => {},
 ): Promise<SpikeResult> {
   const session = await provider.createSession();
   try {
     const page = await session.context.newPage();
-    await page.goto(homeUrl, { waitUntil: "domcontentloaded" });
+    try {
+      await page.goto(homeUrl, { waitUntil: "domcontentloaded" });
+    } catch (cause) {
+      throw new SpikeError(
+        "PAGE_LOAD_FAILED",
+        "Could not load the Car-Part homepage",
+        { cause: String(cause) },
+      );
+    }
+    onStage("homepage load");
     const options = await getSearchOptions(page);
+    onStage("search options extracted");
     await page.selectOption(
       "select[name='userDate']",
       optionValue(options, "years", request.year),
@@ -146,11 +160,28 @@ export async function runCarPartSearch(
     if (request.postalCode) {
       await page.locator("input[name='userZip']").fill(request.postalCode);
     }
-    await submit(page, "input[name='Search Car Part Inventory']");
+    try {
+      await submit(page, "input[name='Search Car Part Inventory']");
+    } catch (cause) {
+      throw new SpikeError(
+        "FORM_SUBMIT_FAILED",
+        "Could not submit the initial search form",
+        { cause: String(cause) },
+      );
+    }
+    onStage("initial form submitted");
     let type = await detectPageType(page);
     let refinement: SpikeResult["refinement"];
     if (type === "refinement") {
+      onStage("refinement page reached");
       const available = parseRefinementChoices(await page.content());
+      if (!available.length) {
+        throw new SpikeError(
+          "REFINEMENT_PARSE_FAILED",
+          "Refinement page did not expose any visible choices",
+        );
+      }
+      onStage("refinement choices extracted");
       if (!request.refinement) {
         throw new SpikeError(
           "REFINEMENT_REQUIRED",
@@ -169,7 +200,16 @@ export async function runCarPartSearch(
       await page.locator("#MainForm input[type='radio'][name='dummyVar']").nth(
         index,
       ).check();
-      await submit(page, "#MainForm input[name='Search Car Part Inventory']");
+      try {
+        await submit(page, "#MainForm input[name='Search Car Part Inventory']");
+      } catch (cause) {
+        throw new SpikeError(
+          "FORM_SUBMIT_FAILED",
+          "Could not submit the refinement form",
+          { cause: String(cause) },
+        );
+      }
+      onStage("refinement submitted");
       refinement = { selected: request.refinement.label, available };
       type = await detectPageType(page);
     }
@@ -180,6 +220,7 @@ export async function runCarPartSearch(
         { title: await page.title() },
       );
     }
+    onStage("results page reached");
     const html = await page.content();
     const listings = parseResults(html);
     if (!listings.length) {
@@ -188,12 +229,16 @@ export async function runCarPartSearch(
         "Results page had no parseable listing rows",
       );
     }
+    onStage("results parsed");
+    if (listings.length === 50) onStage("50 listings parsed");
+    const hasNextPage = hasNextResultsPage(html);
+    if (hasNextPage) onStage("next-page detected");
     return {
       search: request,
       refinement,
       results: {
         count: listings.length,
-        hasNextPage: hasNextResultsPage(html),
+        hasNextPage,
         listings,
       },
     };
