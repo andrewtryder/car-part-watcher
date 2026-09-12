@@ -191,6 +191,13 @@ in a few seconds. Browser RSS was not treated as a reliable comparison because
 the experiments were run in different runtimes and no dedicated benchmark
 harness was introduced.
 
+| Runtime                | Search works                  | Challenge          | Binary/package size                   | Startup                              | Total observed run                 | Subprocesses / RSS                                                                        |
+| ---------------------- | ----------------------------- | ------------------ | ------------------------------------- | ------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| Local headed Chrome    | Yes, 50 listings              | No                 | Chrome app: about 723 MB on this host | Not separately timed                 | A few seconds                      | Not measured: existing user Chrome processes make a clean RSS/count comparison unreliable |
+| Local headless Chrome  | No                            | `ACCESS_CHALLENGE` | Same installation                     | Not separately timed                 | A few seconds to challenge         | Not measured                                                                              |
+| Local Lightpanda       | No; stopped at initial submit | No                 | Verified arm64 binary: about 83 MB    | CDP start and attach: about 1 second | About 30 seconds (locator timeout) | One Lightpanda server process; RSS not captured                                           |
+| Deno Deploy Lightpanda | No usable result              | Not observed       | Pinned x86_64 download: about 171 MB  | Not observed                         | No response within 25 seconds      | Worker started; executable/RSS/process count not observed                                 |
+
 ### Happy DOM 20.14.3
 
 One bounded live experiment used Happy DOM with JavaScript evaluation enabled.
