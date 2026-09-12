@@ -279,3 +279,73 @@ features, but Browserless credentials are required to establish the one
 permitted local run. If that run returns `ACCESS_CHALLENGE`, stop; if it returns
 50 listings with a next page, deploy the same configured provider to the
 protected Deno Deploy preview endpoint exactly once.
+
+## Chrome Execution Mode Matrix
+
+`deno task browser-matrix -- <mode>` is a development-only live harness. It uses
+the existing provider/search/parsers, records its last completed stage and
+coarse timings, and is not a CI task. Browser modes are explicit:
+`chrome-headed`, `chrome-headless`, `chromium-new-headless`, and
+`chromium-headless-shell`. A virtual display is infrastructure, not another
+browser mode: Chrome under Xvfb remains `chrome-headed`.
+
+No mode adds stealth, proxying, custom user agents, navigator patches, header
+changes, CAPTCHA handling, or fingerprint modifications. An access challenge is
+recorded as `ACCESS_CHALLENGE` and that mode is not retried.
+
+| Mode                    | Distribution                                                          | Rendering mode | Environment               | Result                                   | Challenge    | Last stage          | Listings | Total time                     |
+| ----------------------- | --------------------------------------------------------------------- | -------------- | ------------------------- | ---------------------------------------- | ------------ | ------------------- | -------- | ------------------------------ |
+| Chrome headed           | Google Chrome                                                         | headed         | local macOS, real desktop | Existing successful control              | No           | complete            | 50       | A few seconds (previous spike) |
+| Chrome headless         | Google Chrome                                                         | headless       | local macOS               | Existing failing control                 | Yes          | initial form submit | —        | A few seconds (previous spike) |
+| Chromium new headless   | Playwright Chromium                                                   | new headless   | local macOS               | Harness blocked before navigation        | Not observed | browser start       | —        | —                              |
+| Chromium headless shell | Playwright headless shell (Google Chrome for Testing `151.0.7922.34`) | headless       | local macOS               | Failed                                   | Yes          | initial form submit | —        | 2.4 s                          |
+| Chrome + Xvfb           | Google Chrome stable                                                  | headed         | Linux virtual display     | Not run: local Docker daemon unavailable | Not observed | —                   | —        | —                              |
+
+The Chromium-new-headless result is not a Car-Part compatibility result. Its
+managed Chrome-for-Testing bundle was incomplete on this host (a required
+framework file was missing), so `BROWSER_LAUNCH_FAILED` occurred before any site
+request. A repair download made no progress and was stopped. That mode may be
+run once after a complete Playwright-managed Chromium installation is available.
+
+The headless-shell execution used the installed Playwright headless-shell binary
+explicitly because the current Playwright package's expected cached browser was
+incomplete. It loaded the homepage and parsed options, submitted the ordinary
+form, then received the known challenge. No retry or configuration change was
+made.
+
+### Linux headed Chrome with Xvfb
+
+`Dockerfile.browser-matrix` is a deliberately small, non-production Linux
+harness: Deno `2.9.6`, Google Chrome stable, and Xvfb. `.dockerignore` excludes
+`.env`. Once Docker is running on the developer machine, build and run it once:
+
+```sh
+docker build -f Dockerfile.browser-matrix -t car-part-browser-matrix .
+docker run --rm car-part-browser-matrix
+```
+
+The container starts `xvfb-run` with a `1280x900` display and then launches
+normal `channel: "chrome"`, `headless: false` Chrome. It does not pass Chrome a
+headless flag or change browser identity. Docker's local bridge may be a
+materially different environment, though it normally uses the developer
+machine's outbound network; that must be noted with the result.
+
+### Explicit answers
+
+1. **Does Chromium new-headless complete the search?** Not established: its
+   local managed browser bundle failed before launch.
+2. **Does Chromium headless shell complete the search?** No. It received
+   `ACCESS_CHALLENGE` after initial form submission.
+3. **Does normal headed Chrome work under Xvfb?** Not yet tested; Docker is
+   installed but its daemon is not running in this environment.
+4. **Is a physical desktop required?** Not established. The Xvfb control is the
+   remaining experiment needed to answer this.
+5. **Which successful mode has the lowest practical resource cost?** Only local
+   headed Chrome has succeeded so far; no successful lower-cost mode exists.
+6. **Does Browserless remain necessary?** Not known. A successful Xvfb run would
+   make a self-hosted Linux Chrome worker a viable alternative.
+7. **What browser-host architecture should be used next?** Run the single
+   Chrome+Xvfb control in the included local Linux harness. If it succeeds,
+   evaluate `Deno Deploy → CDP → Linux worker (Xvfb + normal Google Chrome)`; if
+   it challenges, investigate environment differences without altering browser
+   identity.

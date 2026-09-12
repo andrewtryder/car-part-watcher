@@ -43,6 +43,7 @@ export interface SpikeResult {
   refinement?: { selected: string; available: string[] };
   results: { count: number; hasNextPage: boolean; listings: CarPartListing[] };
   timings?: SearchTimings;
+  runtimeInfo?: BrowserRuntimeInfo;
 }
 
 export interface SearchTimings {
@@ -53,6 +54,16 @@ export interface SearchTimings {
   refinementSubmitMs?: number;
   resultParseMs?: number;
   totalMs?: number;
+}
+
+export interface BrowserRuntimeInfo {
+  distribution: string;
+  renderingMode: "headed" | "headless";
+  browserVersion?: string;
+  executableSelection: string;
+  os: string;
+  viewport: { width: number; height: number };
+  display: boolean;
 }
 
 export type SpikeErrorCode =

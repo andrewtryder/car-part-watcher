@@ -8,6 +8,7 @@ import { parseRefinementChoices } from "../parsers/refinement.ts";
 import { hasNextResultsPage, parseResults } from "../parsers/results.ts";
 import { parseSearchOptions } from "../parsers/search_options.ts";
 import type {
+  BrowserRuntimeInfo,
   CarPartSearchRequest,
   SearchOptions,
   SearchTimings,
@@ -19,23 +20,64 @@ export interface BrowserSession {
   context: BrowserContext;
   page?: Page;
   timings?: Pick<SearchTimings, "sessionCreateMs" | "cdpConnectMs">;
+  runtimeInfo?: BrowserRuntimeInfo;
   close(): Promise<void>;
 }
 export interface BrowserProvider {
   createSession(): Promise<BrowserSession>;
 }
 
+export type BrowserMode =
+  | "chrome-headed"
+  | "chrome-headless"
+  | "chromium-new-headless"
+  | "chromium-headless-shell";
+
+const browserModeConfig: Record<
+  BrowserMode,
+  { channel?: "chrome" | "chromium"; headless: boolean; distribution: string }
+> = {
+  "chrome-headed": {
+    channel: "chrome",
+    headless: false,
+    distribution: "Google Chrome",
+  },
+  "chrome-headless": {
+    channel: "chrome",
+    headless: true,
+    distribution: "Google Chrome",
+  },
+  "chromium-new-headless": {
+    channel: "chromium",
+    headless: true,
+    distribution: "Chromium",
+  },
+  "chromium-headless-shell": {
+    headless: true,
+    distribution: "Chromium headless shell",
+  },
+};
+
 export class ChromeBrowserProvider implements BrowserProvider {
   constructor(
-    private readonly headless = Deno.env.get("PLAYWRIGHT_HEADLESS") === "true",
+    private readonly mode: BrowserMode =
+      Deno.env.get("PLAYWRIGHT_HEADLESS") === "true"
+        ? "chrome-headless"
+        : "chrome-headed",
   ) {}
 
   async createSession(): Promise<BrowserSession> {
+    const config = browserModeConfig[this.mode];
+    const headlessShellPath = this.mode === "chromium-headless-shell"
+      ? Deno.env.get("PLAYWRIGHT_HEADLESS_SHELL_PATH")
+      : undefined;
+    const startedAt = performance.now();
     let browser: Browser;
     try {
       browser = await chromium.launch({
-        headless: this.headless,
-        channel: "chrome",
+        headless: config.headless,
+        channel: config.channel,
+        executablePath: headlessShellPath,
       });
     } catch (cause) {
       throw new SpikeError(
@@ -44,8 +86,24 @@ export class ChromeBrowserProvider implements BrowserProvider {
         { cause: String(cause) },
       );
     }
-    const context = await browser.newContext();
-    return { context, close: () => browser.close() };
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+    });
+    return {
+      context,
+      timings: { sessionCreateMs: Math.round(performance.now() - startedAt) },
+      runtimeInfo: {
+        distribution: config.distribution,
+        renderingMode: config.headless ? "headless" : "headed",
+        browserVersion: browser.version(),
+        executableSelection: headlessShellPath ?? config.channel ??
+          "Playwright headless shell",
+        os: Deno.build.os,
+        viewport: { width: 1280, height: 900 },
+        display: Boolean(Deno.env.get("DISPLAY")),
+      },
+      close: () => browser.close(),
+    };
   }
 }
 
@@ -266,15 +324,19 @@ export async function runCarPartSearch(
         listings,
       },
       timings,
+      runtimeInfo: session.runtimeInfo,
     };
   } catch (error) {
     if (error instanceof SpikeError) {
+      timings.totalMs = Math.round(performance.now() - startedAt);
       const details = error.details && typeof error.details === "object"
         ? error.details
         : {};
       throw new SpikeError(error.code, error.message, {
         stage,
         ...details,
+        timings,
+        runtimeInfo: session?.runtimeInfo,
       });
     }
     throw error;
