@@ -22,6 +22,9 @@ Deno.serve(async (request) => {
   if (!token || request.headers.get("authorization") !== `Bearer ${token}`) {
     return new Response("Not found", { status: 404 });
   }
+  if (url.searchParams.get("runtime") === "info") {
+    return Response.json({ os: Deno.build.os, arch: Deno.build.arch });
+  }
   try {
     const provider = url.searchParams.get("runtime") === "lightpanda"
       ? await provisionLightpandaForCurrentRuntime()
