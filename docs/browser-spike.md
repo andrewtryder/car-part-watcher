@@ -293,13 +293,13 @@ No mode adds stealth, proxying, custom user agents, navigator patches, header
 changes, CAPTCHA handling, or fingerprint modifications. An access challenge is
 recorded as `ACCESS_CHALLENGE` and that mode is not retried.
 
-| Mode                    | Distribution                                                          | Rendering mode | Environment               | Result                                   | Challenge    | Last stage          | Listings | Total time                     |
-| ----------------------- | --------------------------------------------------------------------- | -------------- | ------------------------- | ---------------------------------------- | ------------ | ------------------- | -------- | ------------------------------ |
-| Chrome headed           | Google Chrome                                                         | headed         | local macOS, real desktop | Existing successful control              | No           | complete            | 50       | A few seconds (previous spike) |
-| Chrome headless         | Google Chrome                                                         | headless       | local macOS               | Existing failing control                 | Yes          | initial form submit | —        | A few seconds (previous spike) |
-| Chromium new headless   | Playwright Chromium                                                   | new headless   | local macOS               | Harness blocked before navigation        | Not observed | browser start       | —        | —                              |
-| Chromium headless shell | Playwright headless shell (Google Chrome for Testing `151.0.7922.34`) | headless       | local macOS               | Failed                                   | Yes          | initial form submit | —        | 2.4 s                          |
-| Chrome + Xvfb           | Google Chrome stable                                                  | headed         | Linux virtual display     | Not run: local Docker daemon unavailable | Not observed | —                   | —        | —                              |
+| Mode                    | Distribution                                                          | Rendering mode | Environment                  | Result                            | Challenge    | Last stage          | Listings | Total time                     |
+| ----------------------- | --------------------------------------------------------------------- | -------------- | ---------------------------- | --------------------------------- | ------------ | ------------------- | -------- | ------------------------------ |
+| Chrome headed           | Google Chrome                                                         | headed         | local macOS, real desktop    | Existing successful control       | No           | complete            | 50       | A few seconds (previous spike) |
+| Chrome headless         | Google Chrome                                                         | headless       | local macOS                  | Existing failing control          | Yes          | initial form submit | —        | A few seconds (previous spike) |
+| Chromium new headless   | Playwright Chromium                                                   | new headless   | local macOS                  | Harness blocked before navigation | Not observed | browser start       | —        | —                              |
+| Chromium headless shell | Playwright headless shell (Google Chrome for Testing `151.0.7922.34`) | headless       | local macOS                  | Failed                            | Yes          | initial form submit | —        | 2.4 s                          |
+| Chrome + Xvfb           | Google Chrome `153.0.8010.36`                                         | headed         | local Docker: Debian 13/Xvfb | SUCCESS                           | No           | complete            | 50       | 5.8 s                          |
 
 The Chromium-new-headless result is not a Car-Part compatibility result. Its
 managed Chrome-for-Testing bundle was incomplete on this host (a required
@@ -329,24 +329,35 @@ made.
 ### Linux headed Chrome with Xvfb
 
 `Dockerfile.browser-matrix` is a deliberately small, non-production Linux
-harness: Deno `2.9.6`, Google Chrome stable, and Xvfb. `.dockerignore` excludes
-`.env`. Once Docker is running on the developer machine, build and run it once:
+harness: Deno `2.9.6`, Google Chrome stable, Xvfb, and `xauth` (required by the
+Debian `xvfb-run` helper). `.dockerignore` excludes `.env`. The local host is
+Apple Silicon, so the image is explicitly `linux/amd64` for Google's x86_64-only
+Chrome package and runs through Docker Desktop emulation.
 
 ```sh
-docker build -f Dockerfile.browser-matrix -t car-part-browser-matrix .
-docker run --rm car-part-browser-matrix
+docker build --platform linux/amd64 -f Dockerfile.browser-matrix -t car-part-browser-matrix .
+docker run --rm --platform linux/amd64 car-part-browser-matrix
 ```
 
-The container starts `xvfb-run` with a `1280x900` display and then launches
-normal `channel: "chrome"`, `headless: false` Chrome. It does not pass Chrome a
-headless flag or change browser identity. Docker's local bridge may be a
-materially different environment, though it normally uses the developer
-machine's outbound network; that must be noted with the result.
+Under x86_64 emulation, Debian's `xvfb-run` did not receive Xvfb's expected
+readiness signal even though Xvfb was running. `scripts/with-xvfb.sh` is the
+equivalent minimal launcher used by the image: it starts `Xvfb :99` with a
+`1280x900x24` screen, verifies that process, exports `DISPLAY=:99`, and cleans
+it up. It launches normal `channel: "chrome"`, `headless: false` Chrome—no
+`--headless` flag or identity modification.
 
-The continuation rechecked `docker info`; Docker is installed but its daemon is
-still unreachable (`DOCKER_DAEMON_UNAVAILABLE`). Per the experiment boundary, no
-Docker Desktop setting was changed and the image was not built. Therefore Xvfb,
-`DISPLAY`, headed Chrome launch, and the single Car-Part search remain untested.
+Infrastructure validation passed without contacting Car-Part: Debian GNU/Linux
+13.6 (`x86_64`), Docker Desktop `29.7.2`, Deno `2.9.6`, Playwright `1.58.2`,
+Xvfb `2:21.1.16-1.3+deb13u4`, Chrome `153.0.8010.36`, and `DISPLAY=:99`.
+Playwright launched headed Chrome, reported its version, and navigated to
+`about:blank`; it closed normally.
+
+The one permitted live run then completed all stages, returned 50 listings and
+`hasNextPage: true`, with no challenge. Timings were 1.5 s session creation, 681
+ms homepage load, 683 ms initial submit, 407 ms refinement submit, 72 ms result
+parse, and 5.8 s total. It used Docker Desktop's ordinary local NAT; the
+container is not a remote host, though its public egress IP was not separately
+measured.
 
 ### Control interpretation
 
@@ -365,22 +376,24 @@ regular managed Chromium new-headless distribution.
    local managed browser bundle failed before launch.
 2. **Does Chromium headless shell complete the search?** No. It received
    `ACCESS_CHALLENGE` after initial form submission.
-3. **Does normal headed Chrome work under Xvfb?** Not yet tested; Docker is
-   installed but its daemon is not running in this environment.
-4. **Is a physical desktop required?** Not established. The Xvfb control is the
-   remaining experiment needed to answer this.
-5. **Which successful mode has the lowest practical resource cost?** Only local
-   headed Chrome has succeeded so far; no successful lower-cost mode exists.
-6. **Does Browserless remain necessary?** Not known. A successful Xvfb run would
-   make a self-hosted Linux Chrome worker a viable alternative.
-7. **What browser-host architecture should be used next?** Run the single
-   Chrome+Xvfb control in the included local Linux harness. If it succeeds,
-   evaluate `Deno Deploy → CDP → Linux worker (Xvfb + normal Google Chrome)`; if
-   it challenges, investigate environment differences without altering browser
-   identity.
+3. **Does normal headed Chrome work under Xvfb?** Yes. It completed the
+   representative search with 50 listings and a next page.
+4. **Is a physical desktop required?** No. Xvfb supplied the only display.
+5. **Which successful mode has the lowest practical resource cost?** Xvfb adds a
+   small display-server process but does not make Chrome lightweight; resource
+   optimization was not the purpose of this successful compatibility result.
+6. **Does Browserless remain necessary?** No. It is optional hosting, not a
+   requirement.
+7. **What browser-host architecture should be used next?**
+   `Deno Deploy →
+   authenticated CDP or internal RPC → Linux worker (Xvfb + Google Chrome,
+   headless:false) → Car-Part`.
 
-The matrix cannot be completed in the current environment: both remaining cells
-are blocked before their live searches by unavailable local infrastructure. No
-recommendation beyond the existing headed-Chrome baseline is justified until a
-complete regular Chromium installation and a reachable local Docker daemon are
-available.
+### Final conclusion
+
+Chrome 153 unified/new headless and the lightweight headless shell were both
+challenged, while normal headed Chrome under Xvfb succeeded. A physical desktop
+is not required; normal headed Chrome behavior with a graphical display server
+is sufficient in this local Linux test. A self-hosted Linux browser worker is
+therefore viable and Browserless is optional. No further compatibility modes
+were tested.

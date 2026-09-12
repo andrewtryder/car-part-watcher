@@ -36,11 +36,14 @@ try {
   if (launchOnly) {
     const session = await new ChromeBrowserProvider(mode).createSession();
     try {
+      const page = await session.context.newPage();
+      await page.goto("about:blank");
       console.log(JSON.stringify(
         {
           mode,
           outcome: "LAUNCH_SUCCESS",
           runtime: session.runtimeInfo,
+          aboutBlankUrl: page.url(),
         },
         null,
         2,

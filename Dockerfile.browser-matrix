@@ -1,8 +1,8 @@
-FROM denoland/deno:2.9.6
+FROM --platform=linux/amd64 denoland/deno:2.9.6
 
 USER root
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl gnupg xvfb \
+  && apt-get install -y --no-install-recommends ca-certificates curl gnupg xauth xvfb \
   && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
     | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
   && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
@@ -13,6 +13,7 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY . .
-RUN deno cache --lock=deno.lock src/browser_matrix.ts
+RUN chmod +x scripts/with-xvfb.sh \
+  && deno cache --lock=deno.lock src/browser_matrix.ts
 
-ENTRYPOINT ["xvfb-run", "-a", "-s", "-screen 0 1280x900x24", "deno", "task", "browser-matrix", "--", "chrome-headed"]
+ENTRYPOINT ["/app/scripts/with-xvfb.sh", "deno", "task", "browser-matrix", "--", "chrome-headed"]
