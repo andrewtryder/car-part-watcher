@@ -4,7 +4,7 @@
 
 **Local execution succeeded.** The Deno/Playwright spike used a single, headed, normal Chrome context to execute the representative 2015 Honda Accord alternator search, choose `2.4L (Mitsubishi manufacturer), AT (CVT)` by visible label, and parse 50 first-page listings. It recognized that a further results page exists.
 
-**Current Deno Deploy execution was not attempted because the supplied credential authenticates to an account with zero reachable Deploy organizations.** That prevents creation or selection of an application. The current platform is therefore not yet a verified Chromium host for this project.
+**Deno Deploy direct Chromium launch failed concretely.** The temporary protected preview endpoint loaded the Deno application and Playwright package, then returned `BROWSER_LAUNCH_FAILED`: `Chromium distribution 'chrome' is not found at /opt/google/chrome/chrome`. Per the spike constraints, no attempt was made to install, bundle, or otherwise work around a browser binary on the platform.
 
 ## Local execution
 
@@ -63,15 +63,15 @@ Not every listing exposes every field. These are observations, not an identity a
 
 Current official Deno Deploy documentation says the platform uses standard Deno in a Linux isolated environment and supports NPM dependencies, filesystem access, subprocesses, and native addons. It also explicitly says the exact installed tools are subject to change and cannot be relied upon. See [Deno Deploy runtime documentation](https://docs.deno.com/deploy/reference/runtime/).
 
-The current Deploy CLI uses `DENO_DEPLOY_TOKEN`, not `DENO_DEPLOY_API_KEY`. For this experiment only, the provided local value was passed to the CLI as `DENO_DEPLOY_TOKEN` without printing it. It authenticated successfully, but reported **0 reachable organizations**. As a result there is no target organization/app and no deployment URL on which to test package download size, Linux browser dependencies, Chromium launch, writable temporary filesystem behavior, or request limits.
+The current Deploy CLI uses `DENO_DEPLOY_TOKEN`, not `DENO_DEPLOY_API_KEY`. For this experiment only, the provided local value was passed to the CLI as `DENO_DEPLOY_TOKEN` without printing it. It authenticated successfully after the Deploy organization/app was created. A protected preview endpoint was deployed and invoked once.
 
 ### Explicit answers
 
-1. **Can Chromium launch directly inside current Deno Deploy?** Unknown for this account/project: no Deploy app could be created due to zero reachable organizations. It must not be assumed from subprocess support alone.
-2. **If yes, how is the browser binary supplied?** Not established. Do not rely on a preinstalled system browser; the runtime documentation says installed tools can change.
-3. **Required launch configuration?** Not established on Deploy. Local Chrome uses Playwright `channel: "chrome"` and a headed context; this is not a portable Deploy configuration.
-4. **If no, what exact failure occurs?** No Chromium failure was reached. The exact blocking response was: authenticated account with `0 reachable organizations`.
-5. **Would remote Playwright/CDP be the clean alternative?** Yes. `BrowserProvider` / `BrowserSession` isolates browser creation. A future `RemoteBrowserProvider` can connect to an approved externally hosted Playwright/CDP browser, while Deno Deploy hosts the authenticated temporary endpoint and parsing orchestration. No external browser service or credentials were added in this spike.
+1. **Can Chromium launch directly inside current Deno Deploy?** No, not with this implementation's normal Playwright Chrome channel. The platform returned `Chromium distribution 'chrome' is not found at /opt/google/chrome/chrome`.
+2. **If yes, how is the browser binary supplied?** Not applicable. No browser binary was supplied or assumed. The runtime documentation says installed tools can change, so depending on a system browser would not be supportable anyway.
+3. **Required launch configuration?** No working direct-launch configuration was established. Local Chrome uses Playwright `channel: "chrome"` and a headed context; that is not a portable Deploy configuration.
+4. **If no, what exact failure occurs?** The deployed endpoint returned HTTP `502` with structured `BROWSER_LAUNCH_FAILED`; Playwright's cause was `Chromium distribution 'chrome' is not found at /opt/google/chrome/chrome` and suggested `npx playwright install chrome`.
+5. **Would remote Playwright/CDP be the clean alternative?** Yes. `BrowserProvider` / `BrowserSession` isolates browser creation. A future `RemoteBrowserProvider` can connect to an approved externally hosted Playwright/CDP browser, while Deno Deploy hosts the protected endpoint and parsing orchestration. No external browser service or credentials were added in this spike.
 
 To continue this experiment, grant this Deploy account access to an organization/app (or provide its organization and app name), set a deployment-only `SEARCH_SPIKE_TOKEN`, deploy a preview using the current `@deno/deploy` CLI, and invoke the protected endpoint once. If the deployed runtime lacks a usable Chromium binary or display/dependencies, record that concrete startup error and use the remote provider boundary instead of attempting workarounds.
 
@@ -81,4 +81,4 @@ To continue this experiment, grant this Deploy account access to an organization
 - The site can change its form/table selectors and human-visible refinement label.
 - The exact configured refinement can disappear; the spike returns `REFINEMENT_OPTION_NOT_FOUND` with current labels rather than guessing.
 - Listing identity is still an observed set of fields, not a durable uniqueness guarantee.
-- Deno Deploy Chromium viability, deployment package size, resource/time limits, and temp-filesystem behavior remain unverified until the account has a reachable Deploy app.
+- A remote Playwright/CDP browser still needs to be selected and its timeout, authentication, and browser-session behavior validated. Direct Chrome launch on this Deno Deploy runtime is not viable with the normal installed-browser channel.
