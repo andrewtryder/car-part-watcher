@@ -307,6 +307,19 @@ framework file was missing), so `BROWSER_LAUNCH_FAILED` occurred before any site
 request. A repair download made no progress and was stopped. That mode may be
 run once after a complete Playwright-managed Chromium installation is available.
 
+The continuation used the pinned package without an upgrade:
+
+```sh
+deno run -A npm:playwright@1.58.2 install --no-shell chromium
+deno task browser-matrix -- chromium-new-headless --launch-only
+```
+
+The installation made no download progress and was stopped; the launch-only
+diagnostic again returned `BROWSER_LAUNCH_FAILED` before network navigation.
+Playwright resolved the expected regular-Chromium path, but its required macOS
+framework remained absent. This is an installation/harness failure, not an
+`ACCESS_CHALLENGE` or other Car-Part result.
+
 The headless-shell execution used the installed Playwright headless-shell binary
 explicitly because the current Playwright package's expected cached browser was
 incomplete. It loaded the homepage and parsed options, submitted the ordinary
@@ -330,6 +343,22 @@ headless flag or change browser identity. Docker's local bridge may be a
 materially different environment, though it normally uses the developer
 machine's outbound network; that must be noted with the result.
 
+The continuation rechecked `docker info`; Docker is installed but its daemon is
+still unreachable (`DOCKER_DAEMON_UNAVAILABLE`). Per the experiment boundary, no
+Docker Desktop setting was changed and the image was not built. Therefore Xvfb,
+`DISPLAY`, headed Chrome launch, and the single Car-Part search remain untested.
+
+### Control interpretation
+
+The original Google Chrome headless control used `channel: "chrome"` and
+`headless: true`. The installed branded Chrome is `153.0.8010.37`; Chrome's
+current documentation states that `--headless` on Chrome 132+ runs unified/new
+headless in the full Chrome binary, while the legacy implementation is the
+separate `chrome-headless-shell` executable. Thus the control is accurately
+described as **Google Chrome unified/new headless**, not headless shell. This is
+consistent with Playwright's separate `channel: "chromium"` opt-in for its
+regular managed Chromium new-headless distribution.
+
 ### Explicit answers
 
 1. **Does Chromium new-headless complete the search?** Not established: its
@@ -349,3 +378,9 @@ machine's outbound network; that must be noted with the result.
    evaluate `Deno Deploy → CDP → Linux worker (Xvfb + normal Google Chrome)`; if
    it challenges, investigate environment differences without altering browser
    identity.
+
+The matrix cannot be completed in the current environment: both remaining cells
+are blocked before their live searches by unavailable local infrastructure. No
+recommendation beyond the existing headed-Chrome baseline is justified until a
+complete regular Chromium installation and a reachable local Docker daemon are
+available.

@@ -14,6 +14,7 @@ const modes = new Set<BrowserMode>([
 const mode = Deno.args.find((argument) => argument !== "--") as
   | BrowserMode
   | undefined;
+const launchOnly = Deno.args.includes("--launch-only");
 if (!mode || !modes.has(mode)) {
   console.error(`Usage: deno task browser-matrix -- <${[...modes].join("|")}>`);
   Deno.exit(2);
@@ -32,6 +33,23 @@ const stageNames: Record<string, string> = {
 let lastSuccessfulStage = "browser_start";
 
 try {
+  if (launchOnly) {
+    const session = await new ChromeBrowserProvider(mode).createSession();
+    try {
+      console.log(JSON.stringify(
+        {
+          mode,
+          outcome: "LAUNCH_SUCCESS",
+          runtime: session.runtimeInfo,
+        },
+        null,
+        2,
+      ));
+    } finally {
+      await session.close();
+    }
+    Deno.exit();
+  }
   const result = await runCarPartSearch(
     new ChromeBrowserProvider(mode),
     undefined,
