@@ -3,6 +3,7 @@ import {
   type BrowserContext,
   chromium,
 } from "npm:playwright-core@1.58.2";
+import { createHash } from "node:crypto";
 import type { BrowserProvider, BrowserSession } from "./car_part_browser.ts";
 import { SpikeError } from "../types.ts";
 
@@ -100,12 +101,6 @@ export class LightpandaBrowserProvider implements BrowserProvider {
   }
 }
 
-function hex(bytes: ArrayBuffer) {
-  return [...new Uint8Array(bytes)].map((byte) =>
-    byte.toString(16).padStart(2, "0")
-  ).join("");
-}
-
 /** Downloads only a pinned, checksum-verified Linux release into a runtime temp directory. */
 export async function provisionLightpandaForCurrentRuntime(): Promise<
   LightpandaBrowserProvider
@@ -127,32 +122,44 @@ export async function provisionLightpandaForCurrentRuntime(): Promise<
   }
   const url =
     `https://github.com/lightpanda-io/browser/releases/download/${lightpandaVersion}/${asset.asset}`;
-  let bytes: Uint8Array;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    bytes = new Uint8Array(await response.arrayBuffer());
-  } catch (cause) {
-    throw new SpikeError(
-      "BROWSER_START_FAILED",
-      "Could not download pinned Lightpanda release",
-      { url, cause: String(cause) },
-    );
-  }
-  const digest = hex(
-    await crypto.subtle.digest("SHA-256", bytes.buffer as ArrayBuffer),
-  );
-  if (digest !== asset.sha256) {
-    throw new SpikeError(
-      "BROWSER_START_FAILED",
-      "Pinned Lightpanda checksum did not match",
-      { expected: asset.sha256, actual: digest, url },
-    );
-  }
   const directory = await Deno.makeTempDir({
     prefix: `lightpanda-${lightpandaVersion}-`,
   });
   const executablePath = `${directory}/${asset.asset}`;
-  await Deno.writeFile(executablePath, bytes, { mode: 0o755 });
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.body) throw new Error("response body is empty");
+    const file = await Deno.open(executablePath, {
+      write: true,
+      create: true,
+      mode: 0o755,
+    });
+    const hash = createHash("sha256");
+    const reader = response.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        hash.update(value);
+        await file.write(value);
+      }
+    } finally {
+      file.close();
+      reader.releaseLock();
+    }
+    const digest = hash.digest("hex");
+    if (digest !== asset.sha256) {
+      throw new Error(
+        `checksum mismatch: expected ${asset.sha256}, received ${digest}`,
+      );
+    }
+  } catch (cause) {
+    throw new SpikeError(
+      "BROWSER_START_FAILED",
+      "Could not download and verify pinned Lightpanda release",
+      { url, cause: String(cause) },
+    );
+  }
   return new LightpandaBrowserProvider(executablePath);
 }
