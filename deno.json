@@ -4,6 +4,7 @@
     "test": "deno test",
     "search:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/spike.ts",
     "lightpanda:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/lightpanda_spike.ts",
+    "browserless:spike": "deno run --allow-env --allow-net --allow-sys src/browserless_spike.ts",
     "serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys main.ts"
   },
   "deploy": {

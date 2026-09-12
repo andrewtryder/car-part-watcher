@@ -3,6 +3,7 @@ import {
   runCarPartSearch,
 } from "./src/browser/car_part_browser.ts";
 import { provisionLightpandaForCurrentRuntime } from "./src/browser/lightpanda_browser_provider.ts";
+import { BrowserlessBrowserProvider } from "./src/browser/browserless_browser_provider.ts";
 import { SpikeError } from "./src/types.ts";
 
 const endpoint = "/_dev/search-spike";
@@ -26,8 +27,11 @@ Deno.serve(async (request) => {
     return Response.json({ os: Deno.build.os, arch: Deno.build.arch });
   }
   try {
-    const provider = url.searchParams.get("runtime") === "lightpanda"
+    const runtime = url.searchParams.get("runtime");
+    const provider = runtime === "lightpanda"
       ? await provisionLightpandaForCurrentRuntime()
+      : runtime === "browserless"
+      ? new BrowserlessBrowserProvider()
       : new LocalBrowserProvider();
     return Response.json(await runCarPartSearch(provider));
   } catch (error) {

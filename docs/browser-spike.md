@@ -220,3 +220,62 @@ downloading its large Linux executable in Deno Deploy did not reach a usable
 browser within the request window. Happy DOM cannot complete ordinary
 navigation. Keep the existing `BrowserProvider` boundary and add a remote
 headed-Chrome/CDP provider only after choosing an approved browser host.
+
+## Remote Headed Chrome Experiment
+
+`BrowserlessBrowserProvider` is the first remote-hosted Chrome provider. It is
+limited to session creation; the existing Car-Part flow, challenge detection,
+form handling, and parsing are unchanged. It uses `npm:playwright-core@1.58.2`
+with `chromium.connectOverCDP()` and reuses the default Browserless context/page
+rather than creating a disconnected context.
+
+### Configuration
+
+- The default region is Browserless US West:
+  `wss://production-sfo.browserless.io`; `BROWSERLESS_ENDPOINT` may replace the
+  service origin (or its `/chrome` path).
+- The provider always selects Browserless's `/chrome` CDP route: ordinary
+  licensed Google Chrome, not Chromium.
+- It requests `headless=false`, `--window-size=1280,900`, and a 60-second
+  Browserless session timeout. Playwright's CDP connection timeout is 15
+  seconds.
+- `BROWSERLESS_TOKEN` is required and is added only to the connection URL at
+  runtime. It is not logged or returned; connection-error sanitization redacts a
+  token query value.
+- No stealth route, proxy, CAPTCHA solving, BrowserQL, profile, custom
+  user-agent, header manipulation, or fingerprint override is configured.
+
+Run the local remote-CDP spike once after setting `BROWSERLESS_TOKEN`:
+
+```sh
+deno task browserless:spike
+```
+
+It records provider/search stages, coarse creation/CDP/homepage/form/parse/total
+timings, and closes the remote browser in `finally`, including for challenges
+and failures. Remote provider failures have distinct
+`REMOTE_BROWSER_CREATE_FAILED` and `REMOTE_CDP_CONNECTION_FAILED` codes; a
+Car-Part challenge remains `ACCESS_CHALLENGE` and carries its current stage.
+
+### Result
+
+No Browserless token or endpoint is configured in this workspace, so the
+authenticated local Browserless experiment and the dependent Deno Deploy
+experiment were not run. The configuration-only invocation stopped before any
+remote or Car-Part request with `REMOTE_BROWSER_CREATE_FAILED` at
+`remote_session_create`; no credential was emitted.
+
+| Runtime                      | Search works                                    | Challenge    | Startup/connect      | Total run     |
+| ---------------------------- | ----------------------------------------------- | ------------ | -------------------- | ------------- |
+| Local headed Chrome          | Yes, 50 listings                                | No           | Not separately timed | A few seconds |
+| Browserless from local Deno  | Not run: credential absent                      | Not observed | Not observed         | Not observed  |
+| Browserless from Deno Deploy | Not run: local remote success is required first | Not observed | Not observed         | Not observed  |
+
+### Recommendation
+
+**D — additional infrastructure experiment is required.** The code now offers an
+ordinary headful Google Chrome CDP session with strict cleanup and no evasion
+features, but Browserless credentials are required to establish the one
+permitted local run. If that run returns `ACCESS_CHALLENGE`, stop; if it returns
+50 listings with a next page, deploy the same configured provider to the
+protected Deno Deploy preview endpoint exactly once.

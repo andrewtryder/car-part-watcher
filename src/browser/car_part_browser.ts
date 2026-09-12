@@ -10,12 +10,15 @@ import { parseSearchOptions } from "../parsers/search_options.ts";
 import type {
   CarPartSearchRequest,
   SearchOptions,
+  SearchTimings,
   SpikeResult,
 } from "../types.ts";
 import { SpikeError } from "../types.ts";
 
 export interface BrowserSession {
   context: BrowserContext;
+  page?: Page;
+  timings?: Pick<SearchTimings, "sessionCreateMs" | "cdpConnectMs">;
   close(): Promise<void>;
 }
 export interface BrowserProvider {
@@ -120,11 +123,23 @@ export async function runCarPartSearch(
   request = representativeSearch,
   onStage: (stage: string) => void = () => {},
 ): Promise<SpikeResult> {
-  const session = await provider.createSession();
+  const startedAt = performance.now();
+  let stage = "session_create";
+  let session: BrowserSession | undefined;
+  const timings: SearchTimings = {};
+  const recordStage = (nextStage: string) => {
+    stage = nextStage;
+    onStage(nextStage);
+  };
   try {
-    const page = await session.context.newPage();
+    session = await provider.createSession();
+    Object.assign(timings, session.timings);
+    const page = session.page ?? await session.context.newPage();
+    stage = "homepage_load";
     try {
+      const beganAt = performance.now();
       await page.goto(homeUrl, { waitUntil: "domcontentloaded" });
+      timings.homepageLoadMs = Math.round(performance.now() - beganAt);
     } catch (cause) {
       throw new SpikeError(
         "PAGE_LOAD_FAILED",
@@ -132,9 +147,9 @@ export async function runCarPartSearch(
         { cause: String(cause) },
       );
     }
-    onStage("homepage load");
+    recordStage("homepage load");
     const options = await getSearchOptions(page);
-    onStage("search options extracted");
+    recordStage("search options extracted");
     await page.selectOption(
       "select[name='userDate']",
       optionValue(options, "years", request.year),
@@ -161,7 +176,10 @@ export async function runCarPartSearch(
       await page.locator("input[name='userZip']").fill(request.postalCode);
     }
     try {
+      stage = "initial_form_submit";
+      const beganAt = performance.now();
       await submit(page, "input[name='Search Car Part Inventory']");
+      timings.initialSubmitMs = Math.round(performance.now() - beganAt);
     } catch (cause) {
       throw new SpikeError(
         "FORM_SUBMIT_FAILED",
@@ -169,11 +187,11 @@ export async function runCarPartSearch(
         { cause: String(cause) },
       );
     }
-    onStage("initial form submitted");
+    recordStage("initial form submitted");
     let type = await detectPageType(page);
     let refinement: SpikeResult["refinement"];
     if (type === "refinement") {
-      onStage("refinement page reached");
+      recordStage("refinement page reached");
       const available = parseRefinementChoices(await page.content());
       if (!available.length) {
         throw new SpikeError(
@@ -181,7 +199,7 @@ export async function runCarPartSearch(
           "Refinement page did not expose any visible choices",
         );
       }
-      onStage("refinement choices extracted");
+      recordStage("refinement choices extracted");
       if (!request.refinement) {
         throw new SpikeError(
           "REFINEMENT_REQUIRED",
@@ -201,7 +219,10 @@ export async function runCarPartSearch(
         index,
       ).check();
       try {
+        stage = "refinement_submit";
+        const beganAt = performance.now();
         await submit(page, "#MainForm input[name='Search Car Part Inventory']");
+        timings.refinementSubmitMs = Math.round(performance.now() - beganAt);
       } catch (cause) {
         throw new SpikeError(
           "FORM_SUBMIT_FAILED",
@@ -209,7 +230,7 @@ export async function runCarPartSearch(
           { cause: String(cause) },
         );
       }
-      onStage("refinement submitted");
+      recordStage("refinement submitted");
       refinement = { selected: request.refinement.label, available };
       type = await detectPageType(page);
     }
@@ -220,7 +241,8 @@ export async function runCarPartSearch(
         { title: await page.title() },
       );
     }
-    onStage("results page reached");
+    recordStage("results page reached");
+    const parseBeganAt = performance.now();
     const html = await page.content();
     const listings = parseResults(html);
     if (!listings.length) {
@@ -229,10 +251,12 @@ export async function runCarPartSearch(
         "Results page had no parseable listing rows",
       );
     }
-    onStage("results parsed");
-    if (listings.length === 50) onStage("50 listings parsed");
+    timings.resultParseMs = Math.round(performance.now() - parseBeganAt);
+    recordStage("results parsed");
+    if (listings.length === 50) recordStage("50 listings parsed");
     const hasNextPage = hasNextResultsPage(html);
-    if (hasNextPage) onStage("next-page detected");
+    if (hasNextPage) recordStage("next-page detected");
+    timings.totalMs = Math.round(performance.now() - startedAt);
     return {
       search: request,
       refinement,
@@ -241,8 +265,23 @@ export async function runCarPartSearch(
         hasNextPage,
         listings,
       },
+      timings,
     };
+  } catch (error) {
+    if (error instanceof SpikeError) {
+      const details = error.details && typeof error.details === "object"
+        ? error.details
+        : {};
+      throw new SpikeError(error.code, error.message, {
+        stage,
+        ...details,
+      });
+    }
+    throw error;
   } finally {
-    await session.close();
+    if (session) {
+      await session.close();
+      onStage("browser session closed");
+    }
   }
 }

@@ -42,6 +42,17 @@ export interface SpikeResult {
   search: CarPartSearchRequest;
   refinement?: { selected: string; available: string[] };
   results: { count: number; hasNextPage: boolean; listings: CarPartListing[] };
+  timings?: SearchTimings;
+}
+
+export interface SearchTimings {
+  sessionCreateMs?: number;
+  cdpConnectMs?: number;
+  homepageLoadMs?: number;
+  initialSubmitMs?: number;
+  refinementSubmitMs?: number;
+  resultParseMs?: number;
+  totalMs?: number;
 }
 
 export type SpikeErrorCode =
@@ -58,7 +69,11 @@ export type SpikeErrorCode =
   | "FORM_SUBMIT_FAILED"
   | "REFINEMENT_PARSE_FAILED"
   | "RESULTS_PARSE_FAILED"
-  | "LIGHTPANDA_INCOMPATIBLE";
+  | "LIGHTPANDA_INCOMPATIBLE"
+  | "REMOTE_BROWSER_CREATE_FAILED"
+  | "REMOTE_CDP_CONNECTION_FAILED"
+  | "REMOTE_BROWSER_DISCONNECTED"
+  | "REMOTE_BROWSER_TIMEOUT";
 
 export class SpikeError extends Error {
   constructor(
