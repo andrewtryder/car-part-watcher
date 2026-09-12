@@ -4,5 +4,11 @@
     "test": "deno test",
     "search:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/spike.ts",
     "serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys main.ts"
+  },
+  "deploy": {
+    "org": "andrewtryder",
+    "app": "car-part-watcher"
   }
 }
+
+
