@@ -62,3 +62,24 @@ export const refreshCatalog = () =>
   call<{ counts: Record<string, number> }>("/api/catalog/refresh", {
     method: "POST",
   });
+export type Notification = {
+  id: string;
+  readAt?: string;
+  payload: {
+    watch: { name: string };
+    listing: {
+      title: string;
+      price?: string;
+      recyclerName?: string;
+      location?: string;
+    };
+  };
+};
+export const notifications = (all = false) =>
+  call<{ items: Notification[]; unreadCount: number }>(
+    `/api/notifications?status=${all ? "all" : "unread"}`,
+  );
+export const markRead = (id: string) =>
+  call<{ ok: true }>(`/api/notifications/${id}/read`, { method: "POST" });
+export const markAllRead = () =>
+  call<{ ok: true }>("/api/notifications/mark-all-read", { method: "POST" });
