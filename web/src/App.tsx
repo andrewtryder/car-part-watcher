@@ -5,14 +5,27 @@ import {
   LayoutDashboard,
   RefreshCw,
   Search,
-  Settings,
   Wrench,
 } from "lucide-react";
-import { type Dashboard, dashboard, refreshCatalog, runWatch } from "./api.ts";
+import {
+  type Dashboard,
+  dashboard,
+  notifications,
+  refreshCatalog,
+  refreshUnreadCount,
+  runWatch,
+} from "./api.ts";
 import { Inbox } from "./Inbox.tsx";
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter,
+  Link,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { WatchForm, WatchList } from "./Watches.tsx";
 import { WatchDetail } from "./WatchDetail.tsx";
+import { GlobalRunHistory } from "./RunHistory.tsx";
 
 const frequency = (value: number) =>
   value === 1
@@ -93,6 +106,7 @@ export function DashboardPage() {
         } new · ${result.changedCount ?? 0} changed`,
       );
       await load();
+      refreshUnreadCount();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Run failed");
     } finally {
@@ -111,292 +125,306 @@ export function DashboardPage() {
     }
   };
   return (
-    <div className="app">
-      <aside>
-        <div className="brand">
-          <Wrench size={20} /> Car Part Watcher
+    <main>
+      <header>
+        <div>
+          <p className="eyebrow">OPERATIONS</p>
+          <h1>Dashboard</h1>
         </div>
-        <nav>
-          <a className="active">
-            <LayoutDashboard size={18} />Dashboard
-          </a>
-          <a aria-disabled="true">
-            <Search size={18} />Saved Searches <em>Next</em>
-          </a>
-          <a aria-disabled="true">
-            <Bell size={18} />New Parts <em>Next</em>
-          </a>
-          <a aria-disabled="true">
-            <Clock3 size={18} />Run History <em>Next</em>
-          </a>
-          <a aria-disabled="true">
-            <Settings size={18} />Settings <em>Next</em>
-          </a>
-        </nav>
-      </aside>
-      <main>
-        <header>
-          <div>
-            <p className="eyebrow">OPERATIONS</p>
-            <h1>Dashboard</h1>
-          </div>
-          <div className="status">
-            <span /> {data?.timezone ?? "Loading timezone…"}
-          </div>
-        </header>
-        {error
-          ? (
-            <section className="state">
-              <h2>Could not load dashboard</h2>
-              <p>{error}</p>
-              <button onClick={load}>Retry</button>
-            </section>
-          )
-          : !data
-          ? <section className="skeleton">Loading dashboard…</section>
-          : (
-            <>
-              <div className="stats">
+        <div className="status">
+          <span /> {data?.timezone ?? "Loading timezone…"}
+        </div>
+      </header>
+      {error
+        ? (
+          <section className="state">
+            <h2>Could not load dashboard</h2>
+            <p>{error}</p>
+            <button onClick={load}>Retry</button>
+          </section>
+        )
+        : !data
+        ? <section className="skeleton">Loading dashboard…</section>
+        : (
+          <>
+            <div className="stats">
+              <Link className="statLink" to="/new-parts">
                 <Stat
                   label="New Parts"
                   value={data.summary.newPartCount}
-                  detail="new_listing events in last 24 hours"
+                  detail="Unread new-part events"
                 />
-                <Stat
-                  label="Active Watches"
-                  value={data.summary.activeWatchCount}
-                />
-                <Stat
-                  label="Last Run"
-                  value={time(data.summary.lastRunAt, data.timezone)}
-                  detail={data.summary.lastRunStatus ?? "No runs yet"}
-                />
+              </Link>
+              <Stat
+                label="Active Watches"
+                value={data.summary.activeWatchCount}
+              />
+              <Stat
+                label="Last Run"
+                value={time(data.summary.lastRunAt, data.timezone)}
+                detail={data.summary.lastRunStatus ?? "No runs yet"}
+              />
+            </div>
+            {message && <p className="notice" aria-live="polite">{message}</p>}
+            <section className="section">
+              <div className="sectionHead">
+                <div>
+                  <p className="eyebrow">SAVED SEARCHES</p>
+                  <h2>Watch health</h2>
+                </div>
               </div>
-              {message && <p className="notice" aria-live="polite">{message}
-              </p>}
-              <section className="section">
+              {data.watches.length === 0
+                ? (
+                  <div className="empty">
+                    <Search size={28} />
+                    <h3>No saved searches yet</h3>
+                    <p>Create a saved search to start watching for parts.</p>
+                    <small>Saved Search editor coming next.</small>
+                  </div>
+                )
+                : (
+                  <div className="watchGrid">
+                    {data.watches.map((watch) => (
+                      <article className="watch" key={watch.id}>
+                        <div className="watchTop">
+                          <div>
+                            <h3>{watch.name}</h3>
+                            <p>
+                              {watch.criteria.year} {watch.criteria.makeModel} ·
+                              {" "}
+                              {watch.criteria.part}
+                            </p>
+                          </div>
+                          <Badge tone={watch.enabled ? "green" : "slate"}>
+                            {watch.enabled ? "Enabled" : "Disabled"}
+                          </Badge>
+                        </div>
+                        <p className="criteria">
+                          {watch.criteria.location || "All areas"}
+                          {watch.criteria.refinementLabel
+                            ? ` · ${watch.criteria.refinementLabel}`
+                            : ""}
+                        </p>
+                        <div className="badges">
+                          {watch.schedule.enabled
+                            ? (
+                              <Badge tone="blue">
+                                {frequency(watch.schedule.frequency)}
+                              </Badge>
+                            )
+                            : <Badge>Not scheduled</Badge>}
+                          {(watch.lastRun?.newListingCount ?? 0) > 0 && (
+                            <Badge tone="amber">
+                              {watch.lastRun!.newListingCount} New
+                            </Badge>
+                          )}
+                        </div>
+                        <dl>
+                          <div>
+                            <dt>Last run</dt>
+                            <dd>
+                              {time(watch.lastRun?.startedAt, data.timezone)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Results</dt>
+                            <dd>{watch.lastRun?.listingCount ?? "—"}</dd>
+                          </div>
+                          <div>
+                            <dt>Changed</dt>
+                            <dd>{watch.lastRun?.changedCount ?? "—"}</dd>
+                          </div>
+                        </dl>
+                        <div className="actions">
+                          <button
+                            disabled={running === watch.id}
+                            onClick={() =>
+                              execute(watch.id)}
+                          >
+                            {running === watch.id
+                              ? "Running search…"
+                              : "Run Now"}
+                          </button>
+                          <Link
+                            className="quiet buttonLink"
+                            to={`/watches/${watch.id}`}
+                          >
+                            View
+                          </Link>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+            </section>
+            <section className="twoCol">
+              <article className="panel">
                 <div className="sectionHead">
                   <div>
-                    <p className="eyebrow">SAVED SEARCHES</p>
-                    <h2>Watch health</h2>
+                    <p className="eyebrow">RECENT RUNS</p>
+                    <h2>Latest activity</h2>
                   </div>
                 </div>
-                {data.watches.length === 0
+                {data.recentRuns.length
                   ? (
-                    <div className="empty">
-                      <Search size={28} />
-                      <h3>No saved searches yet</h3>
-                      <p>Create a saved search to start watching for parts.</p>
-                      <small>Saved Search editor coming next.</small>
+                    <div className="tableWrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Watch</th>
+                            <th>Started</th>
+                            <th>Results</th>
+                            <th>New</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.recentRuns.map((run) => (
+                            <tr key={run.id}>
+                              <td>
+                                {run.watchName}
+                                <small>
+                                  {run.runType ?? "manual"} · {duration(run)}
+                                </small>
+                              </td>
+                              <td>{time(run.startedAt, data.timezone)}</td>
+                              <td>{run.listingCount ?? "—"}</td>
+                              <td>{run.newListingCount ?? "—"}</td>
+                              <td>
+                                <Badge
+                                  tone={run.status === "succeeded"
+                                    ? "green"
+                                    : run.status === "failed"
+                                    ? "red"
+                                    : "amber"}
+                                >
+                                  {run.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )
-                  : (
-                    <div className="watchGrid">
-                      {data.watches.map((watch) => (
-                        <article className="watch" key={watch.id}>
-                          <div className="watchTop">
-                            <div>
-                              <h3>{watch.name}</h3>
-                              <p>
-                                {watch.criteria.year} {watch.criteria.makeModel}
-                                {" "}
-                                · {watch.criteria.part}
-                              </p>
-                            </div>
-                            <Badge tone={watch.enabled ? "green" : "slate"}>
-                              {watch.enabled ? "Enabled" : "Disabled"}
-                            </Badge>
-                          </div>
-                          <p className="criteria">
-                            {watch.criteria.location || "All areas"}
-                            {watch.criteria.refinementLabel
-                              ? ` · ${watch.criteria.refinementLabel}`
-                              : ""}
-                          </p>
-                          <div className="badges">
-                            {watch.schedule.enabled
-                              ? (
-                                <Badge tone="blue">
-                                  {frequency(watch.schedule.frequency)}
-                                </Badge>
-                              )
-                              : <Badge>Not scheduled</Badge>}
-                            {(watch.lastRun?.newListingCount ?? 0) > 0 && (
-                              <Badge tone="amber">
-                                {watch.lastRun!.newListingCount} New
-                              </Badge>
-                            )}
-                          </div>
-                          <dl>
-                            <div>
-                              <dt>Last run</dt>
-                              <dd>
-                                {time(watch.lastRun?.startedAt, data.timezone)}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>Results</dt>
-                              <dd>{watch.lastRun?.listingCount ?? "—"}</dd>
-                            </div>
-                            <div>
-                              <dt>Changed</dt>
-                              <dd>{watch.lastRun?.changedCount ?? "—"}</dd>
-                            </div>
-                          </dl>
-                          <div className="actions">
-                            <button
-                              disabled={running === watch.id}
-                              onClick={() =>
-                                execute(watch.id)}
-                            >
-                              {running === watch.id
-                                ? "Running search…"
-                                : "Run Now"}
-                            </button>
-                            <button className="quiet" disabled>View</button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-              </section>
-              <section className="twoCol">
-                <article className="panel">
-                  <div className="sectionHead">
-                    <div>
-                      <p className="eyebrow">RECENT RUNS</p>
-                      <h2>Latest activity</h2>
-                    </div>
+                  : <p className="muted">No runs recorded yet.</p>}
+              </article>
+              <article className="panel catalog">
+                <div className="sectionHead">
+                  <div>
+                    <p className="eyebrow">CAR-PART CATALOG</p>
+                    <h2>Catalog status</h2>
                   </div>
-                  {data.recentRuns.length
-                    ? (
-                      <div className="tableWrap">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Watch</th>
-                              <th>Started</th>
-                              <th>Results</th>
-                              <th>New</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {data.recentRuns.map((run) => (
-                              <tr key={run.id}>
-                                <td>
-                                  {run.watchName}
-                                  <small>
-                                    {run.runType ?? "manual"} · {duration(run)}
-                                  </small>
-                                </td>
-                                <td>{time(run.startedAt, data.timezone)}</td>
-                                <td>{run.listingCount ?? "—"}</td>
-                                <td>{run.newListingCount ?? "—"}</td>
-                                <td>
-                                  <Badge
-                                    tone={run.status === "succeeded"
-                                      ? "green"
-                                      : run.status === "failed"
-                                      ? "red"
-                                      : "amber"}
-                                  >
-                                    {run.status}
-                                  </Badge>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )
-                    : <p className="muted">No runs recorded yet.</p>}
-                </article>
-                <article className="panel catalog">
-                  <div className="sectionHead">
-                    <div>
-                      <p className="eyebrow">CAR-PART CATALOG</p>
-                      <h2>Catalog status</h2>
-                    </div>
-                    <button
-                      className="quiet icon"
-                      disabled={refreshing}
-                      onClick={refresh}
-                      aria-label="Refresh catalog"
-                    >
-                      <RefreshCw
-                        size={16}
-                        className={refreshing ? "spin" : ""}
-                      />
-                    </button>
-                  </div>
-                  {data.catalog
-                    ? (
-                      <>
-                        <p>
-                          Last refreshed{" "}
-                          {time(data.catalog.fetchedAt, data.timezone)}
-                        </p>
-                        <div className="catalogCounts">
-                          <span>
-                            <b>{data.catalog.yearCount}</b> years
-                          </span>
-                          <span>
-                            <b>
-                              {data.catalog.makeModelCount.toLocaleString()}
-                            </b>{" "}
-                            makes/models
-                          </span>
-                          <span>
-                            <b>{data.catalog.partCount}</b> parts
-                          </span>
-                        </div>
-                      </>
-                    )
-                    : (
-                      <p className="muted">
-                        Catalog has not been initialized.
+                  <button
+                    className="quiet icon"
+                    disabled={refreshing}
+                    onClick={refresh}
+                    aria-label="Refresh catalog"
+                  >
+                    <RefreshCw
+                      size={16}
+                      className={refreshing ? "spin" : ""}
+                    />
+                  </button>
+                </div>
+                {data.catalog
+                  ? (
+                    <>
+                      <p>
+                        Last refreshed{" "}
+                        {time(data.catalog.fetchedAt, data.timezone)}
                       </p>
-                    )}
-                  <p className="muted">
-                    {data.summary.pendingNotificationCount} pending events ·
-                    {" "}
-                    {data.summary.failedNotificationCount} failed events
-                  </p>
-                </article>
-              </section>
-            </>
-          )}
-      </main>
-    </div>
-  );
-}
-
-function PendingPage({ title }: { title: string }) {
-  return (
-    <main className="inbox">
-      <Link to="/">← Dashboard</Link>
-      <section className="empty">
-        <h1>{title}</h1>
-        <p>
-          This page is being completed as part of the saved-search workflow.
-        </p>
-      </section>
+                      <div className="catalogCounts">
+                        <span>
+                          <b>{data.catalog.yearCount}</b> years
+                        </span>
+                        <span>
+                          <b>
+                            {data.catalog.makeModelCount.toLocaleString()}
+                          </b>{" "}
+                          makes/models
+                        </span>
+                        <span>
+                          <b>{data.catalog.partCount}</b> parts
+                        </span>
+                      </div>
+                    </>
+                  )
+                  : (
+                    <p className="muted">
+                      Catalog has not been initialized.
+                    </p>
+                  )}
+                <p className="muted">
+                  {data.summary.pendingNotificationCount} pending events ·{" "}
+                  {data.summary.failedNotificationCount} failed events
+                </p>
+              </article>
+            </section>
+          </>
+        )}
     </main>
   );
 }
+
+function ConsoleNav() {
+  const location = useLocation();
+  const [unread, setUnread] = useState<number>();
+  const loadUnread = useCallback(() => {
+    notifications().then((value) => setUnread(value.unreadCount)).catch(() =>
+      undefined
+    );
+  }, []);
+  useEffect(() => {
+    loadUnread();
+    globalThis.addEventListener("new-parts-count-changed", loadUnread);
+    const timer = setInterval(loadUnread, 60_000);
+    return () => {
+      globalThis.removeEventListener("new-parts-count-changed", loadUnread);
+      clearInterval(timer);
+    };
+  }, [loadUnread]);
+  const active = (path: string) =>
+    location.pathname === path ||
+    (path === "/watches" && location.pathname.startsWith("/watches"));
+  return (
+    <aside>
+      <div className="brand">
+        <Wrench size={20} /> Car Part Watcher
+      </div>
+      <nav>
+        <Link className={active("/") ? "active" : ""} to="/">
+          <LayoutDashboard size={18} />Dashboard
+        </Link>
+        <Link className={active("/watches") ? "active" : ""} to="/watches">
+          <Search size={18} />Saved Searches
+        </Link>
+        <Link className={active("/new-parts") ? "active" : ""} to="/new-parts">
+          <Bell size={18} />New Parts <em>{unread ?? "…"}</em>
+        </Link>
+        <Link className={active("/runs") ? "active" : ""} to="/runs">
+          <Clock3 size={18} />Run History
+        </Link>
+      </nav>
+    </aside>
+  );
+}
+
 export function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/new-parts" element={<Inbox />} />
-        <Route path="/watches" element={<WatchList />} />
-        <Route path="/watches/new" element={<WatchForm />} />
-        <Route path="/watches/:id" element={<WatchDetail />} />
-        <Route path="/watches/:id/edit" element={<WatchForm />} />
-        <Route path="/runs" element={<PendingPage title="Run History" />} />
-      </Routes>
+      <div className="app">
+        <ConsoleNav />
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/new-parts" element={<Inbox />} />
+          <Route path="/watches" element={<WatchList />} />
+          <Route path="/watches/new" element={<WatchForm />} />
+          <Route path="/watches/:id" element={<WatchDetail />} />
+          <Route path="/watches/:id/edit" element={<WatchForm />} />
+          <Route path="/runs" element={<GlobalRunHistory />} />
+        </Routes>
+      </div>
     </BrowserRouter>
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   deleteWatch,
+  refreshUnreadCount,
   type Run,
   runWatch,
   saveWatch,
@@ -303,6 +304,7 @@ export function WatchDetail() {
         } pages`,
       );
       await refresh();
+      refreshUnreadCount();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Run failed");
     } finally {
@@ -399,6 +401,7 @@ export function WatchDetail() {
             {running ? "Running search…" : "Run Now"}
           </button>
           <Link to={`/watches/${item.id}/edit`}>Edit</Link>
+          <Link to={`/new-parts?watchId=${item.id}`}>View New Parts</Link>
           <button className="quiet" onClick={toggle}>
             {item.enabled ? "Disable" : "Enable"}
           </button>

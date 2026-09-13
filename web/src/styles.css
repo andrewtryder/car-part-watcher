@@ -125,6 +125,8 @@ p {
 .stat {
   padding: 18px;
 }
+.statLink { color: inherit; text-decoration: none; }
+.statLink .stat { height: 100%; }
 .stat p,
 .stat small,
 .muted {
@@ -254,12 +256,24 @@ th, td { padding: 12px; border-bottom: 1px solid #edf0f2; text-align: left; vert
 th { color: #62727c; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
 td details { margin-top: 7px; color: #6b4650; }
 .inlineButton { padding: 3px 7px; margin-left: 5px; }
+.filters, .inboxControls { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin-top: 24px; }
+.filters label, .inboxControls label { display: grid; gap: 6px; color: #52616b; font-size: 13px; font-weight: 650; }
+.filters select, .inboxControls select { min-width: 180px; border: 1px solid #cbd5db; border-radius: 7px; padding: 8px; background: white; font: inherit; }
+.tabs { display: flex; gap: 6px; }
+.activeTab { background: #176b8a; color: white; }
+.inboxList { display: grid; gap: 14px; margin-top: 20px; max-width: 840px; }
+.notification.unread { border-left: 4px solid #176b8a; }
+.notification.read { opacity: .72; }
+.notification .watchTop small { color: #52616b; }
 @media (max-width: 680px) {
   main { padding: 20px; }
   .detailHeader { display: grid; }
   .detailActions { width: 100%; }
   .detailActions button, .detailActions a { min-height: 40px; }
   .detailStats { grid-template-columns: 1fr 1fr; }
+  .filters, .inboxControls { align-items: stretch; }
+  .filters label, .inboxControls label { width: 100%; }
+  .filters select, .inboxControls select { width: 100%; }
 }
 .quiet {
   background: #eef2f4;
