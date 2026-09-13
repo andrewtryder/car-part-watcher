@@ -26,6 +26,7 @@ export interface CarPartListing {
   makeModel?: string;
   part?: string;
   description?: string;
+  damageCode?: string;
   grade?: string;
   stockNumber?: string;
   price?: { amount?: number; currency?: string; display: string };
@@ -35,6 +36,8 @@ export interface CarPartListing {
   partGuid?: string;
   vehicleGuid?: string;
   imageUrl?: string;
+  /** Source-provided photo/detail context; not an invented listing URL. */
+  photoUrl?: string;
   quoteUrl?: string;
 }
 
