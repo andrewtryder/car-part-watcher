@@ -87,7 +87,7 @@ export async function upsertListing(
       values[12]
     },${values[13]},${values[14]},${values[15]},${values[16]},${values[17]},${
       values[18]
-    },${observedAt},${observedAt})`;
+    },${values[19]},${observedAt},${observedAt})`;
     return { id, isNew: true, changedFields: [] as string[] };
   }
   const changedFields = (await import("../listing_normalizer.ts"))
