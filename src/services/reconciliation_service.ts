@@ -6,6 +6,7 @@ import { associateListing, upsertListing } from "../repositories/listing_reposit
 import { completeSearchRun, createSearchRun, failSearchRun } from "../repositories/search_run_repository.ts";
 import { getWatch, type Watch } from "../repositories/watch_repository.ts";
 import { SpikeError } from "../types.ts";
+import { deduplicateNormalized, ListingIdentityCollisionError } from "../reconciliation.ts";
 
 export interface WatchRunSummary {
   runId: string; status: "succeeded"; pagesFetched: number; listingCount: number;
@@ -13,19 +14,11 @@ export interface WatchRunSummary {
   newListings: NormalizedListing[];
 }
 
-export class ListingIdentityCollisionError extends Error {
-  code = "LISTING_IDENTITY_COLLISION";
-  constructor(sourceKey: string) { super(`Multiple visibly different results produced ${sourceKey}`); }
-}
 
 function safeError(error: unknown) {
   if (error instanceof SpikeError) return { code: error.code, message: error.message };
   if (error && typeof error === "object" && "code" in error) return { code: String((error as { code: unknown }).code), message: error instanceof Error ? error.message : "Search failed" };
   return { code: "SEARCH_FAILED", message: error instanceof Error ? error.message.slice(0, 500) : "Search failed" };
-}
-
-function distinctSignature(listing: NormalizedListing) {
-  return [listing.sellerUserId, listing.stockNumber, listing.part, listing.year, listing.makeModel].join("|");
 }
 
 export async function executeWatch(watchId: string): Promise<WatchRunSummary> {
@@ -37,14 +30,7 @@ export async function executeWatch(watchId: string): Promise<WatchRunSummary> {
   try {
     const result = await runCarPartSearch(new BrowserlessBrowserProvider(), watch);
     const normalized = (await Promise.all(result.results.listings.map(normalizeListing))).filter((item): item is NormalizedListing => Boolean(item));
-    const unique = new Map<string, NormalizedListing>();
-    for (const listing of normalized) {
-      const previous = unique.get(listing.sourceKey);
-      if (previous && distinctSignature(previous) !== distinctSignature(listing)) {
-        throw new ListingIdentityCollisionError(listing.sourceKey);
-      }
-      unique.set(listing.sourceKey, listing);
-    }
+    const unique = new Map(deduplicateNormalized(normalized).map((listing) => [listing.sourceKey, listing]));
     if (!unique.size) throw new Error("No listings had a durable source identity");
     const observedAt = new Date();
     let newListingCount = 0; let changedCount = 0;
@@ -70,15 +56,4 @@ export async function executeWatch(watchId: string): Promise<WatchRunSummary> {
     await failSearchRun(run.id, safe.code, safe.message).catch(() => undefined);
     throw error;
   }
-}
-
-/** Dependency-free reconciliation core for fixture tests. */
-export function deduplicateNormalized(listings: NormalizedListing[]) {
-  const unique = new Map<string, NormalizedListing>();
-  for (const listing of listings) {
-    const previous = unique.get(listing.sourceKey);
-    if (previous && distinctSignature(previous) !== distinctSignature(listing)) throw new ListingIdentityCollisionError(listing.sourceKey);
-    unique.set(listing.sourceKey, listing);
-  }
-  return [...unique.values()];
 }

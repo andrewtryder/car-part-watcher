@@ -82,7 +82,15 @@ Deno.serve(async (req) => {
     }
     const id = url.pathname.match(/^\/api\/watches\/([\w-]+)$/)?.[1];
     const runId = url.pathname.match(/^\/api\/watches\/([\w-]+)\/run$/)?.[1];
-    if (runId && req.method === "POST") return json(await executeWatch(runId));
+    if (runId && req.method === "POST") {
+      const run = await executeWatch(runId);
+      return json({ ...run, newListings: run.newListings.map((listing) => ({
+        year: listing.year, makeModel: listing.makeModel, part: listing.part,
+        description: listing.description, grade: listing.grade, stockNumber: listing.stockNumber,
+        priceDisplay: listing.priceDisplay, recyclerName: listing.recyclerName,
+        recyclerLocation: listing.recyclerLocation,
+      })) });
+    }
     const historyId = url.pathname.match(/^\/api\/watches\/([\w-]+)\/runs$/)?.[1];
     if (historyId && req.method === "GET") return json(await listSearchRuns(historyId));
     if (id && req.method === "GET") {
