@@ -1,7 +1,9 @@
 import { getCatalog, refreshCatalog } from "./src/services/catalog_service.ts";
 import "./src/cron.ts";
 import {
-  listNotificationEvents,
+  listInboxNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
   notificationCounts,
   retryNotificationEvent,
 } from "./src/repositories/notification_repository.ts";
@@ -134,7 +136,28 @@ Deno.serve(async (req) => {
       });
     }
     if (url.pathname === "/api/notifications" && req.method === "GET") {
-      return json(await listNotificationEvents());
+      return json(
+        await listInboxNotifications({
+          unread: url.searchParams.get("status") !== "all",
+          watchId: url.searchParams.get("watchId") ?? undefined,
+          limit: Number(url.searchParams.get("limit") ?? 50),
+        }),
+      );
+    }
+    if (
+      url.pathname === "/api/notifications/mark-all-read" &&
+      req.method === "POST"
+    ) {
+      const body = await req.json().catch(() => ({}));
+      await markAllNotificationsRead(body.watchId);
+      return json({ ok: true });
+    }
+    const readEventId = url.pathname.match(
+      /^\/api\/notifications\/([\w-]+)\/read$/,
+    )?.[1];
+    if (readEventId && req.method === "POST") {
+      await markNotificationRead(readEventId);
+      return json({ ok: true });
     }
     const retryEventId = url.pathname.match(
       /^\/api\/notifications\/([\w-]+)\/retry$/,
