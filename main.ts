@@ -34,6 +34,7 @@ async function page() {
     window.runWatch=async id=>{let b=document.querySelector('[data-run="'+id+'"]');b.disabled=true;b.textContent='Running…';try{let r=await (await fetch('/api/watches/'+id+'/run',{method:'POST'})).json();if(r.error)throw Error(r.error);alert('Results: '+r.listingCount+' · New: '+r.newListingCount+' · Existing: '+(r.listingCount-r.newListingCount)+' · Changed: '+r.changedCount+' · Pages: '+r.pagesFetched+' · '+r.durationMs+'ms');load()}catch(e){alert(e.message)}finally{b.disabled=false;b.textContent='Run Now'}};
     const attach=()=>document.querySelectorAll('#watches p').forEach(p=>{let m=p.innerHTML.match(/edit\\('([^']+)'\\)/);if(m&&!p.querySelector('[data-run]'))p.insertAdjacentHTML('beforeend',' <button data-run="'+m[1]+'" onclick="runWatch(\\''+m[1]+'\\')">Run Now</button>')});
     const originalLoad=load;load=async()=>{await originalLoad();attach()};
+    new MutationObserver(attach).observe(document.getElementById('watches'),{childList:true});attach();
   </script>`;
   return new Response((await response.text()) + runUi, response);
 }
