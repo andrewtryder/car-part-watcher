@@ -149,6 +149,15 @@ function recyclerFrom(cell: any) {
   return name || location || phone ? { name, location: location || undefined, phone } : undefined;
 }
 
+function decodedUrlParam(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function parseResults(html: string): CarPartListing[] {
   const document = (parseHTML(html) as unknown as { document: any }).document;
   const table = [...document.querySelectorAll("table")].find((candidate) =>
@@ -178,6 +187,8 @@ export function parseResults(html: string): CarPartListing[] {
     const quoteLink = [...recyclerCell.querySelectorAll("a[href*='quoteForm.cgi']")]
       .find((link: any) => link.href.includes("type=g"));
     const identityUrl = photo.photoUrl ?? photo.imageUrl;
+    const recycler = recyclerFrom(recyclerCell);
+    const quoteRecyclerName = decodedUrlParam(urlParam(quoteLink?.href, "name"));
     return [{
       ...vehicle,
       description: text(descriptionCell)?.replace(/\s*Estimated CO2e Savings:.*$/i, ""),
@@ -186,7 +197,9 @@ export function parseResults(html: string): CarPartListing[] {
       stockNumber: text(cells[fallback.get("stockNumber")!]),
       price: parsePrice(directPrice(cells[fallback.get("price")!])),
       priceQualifier: priceQualifier(cells[fallback.get("price")!], directPrice(cells[fallback.get("price")!])),
-      recycler: recyclerFrom(recyclerCell),
+      recycler: recycler?.name || !quoteRecyclerName
+        ? recycler
+        : { ...recycler, name: quoteRecyclerName },
       sellerUserId: urlParam(quoteLink?.href, "selleruserid"),
       partSourceId: urlParam(identityUrl, "partsourceid"),
       partGuid: urlParam(identityUrl, "partGUID"),

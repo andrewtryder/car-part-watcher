@@ -51,3 +51,11 @@ Deno.test("parses the current semantic Car-Part result layout", () => {
   assertEquals(call.imageUrl, undefined);
   assertEquals(call.photoUrl, undefined);
 });
+
+Deno.test("uses the sanitized quote context when dealer markup omits a name", () => {
+  const [listing] = parseResults(
+    `<table><tr><td>Year<br>Part<br>Model</td><td>Description</td><td>Damage Code</td><td>Part Grade</td><td>Stock#</td><td>US Price</td><td>Dealer Info</td></tr><tr><td>2019<br>Front Bumper Assembly<br>Honda CRV</td><td><a href="https://image.test/?partsourceid=1&partGUID=p1"><img src="https://image.test/a.jpg"></a></td><td>6S55D4</td><td>C9cc</td><td>17</td><td>$245</td><td><a href="/cgi-bin/quoteForm.cgi?type=g&selleruserid=9203&name=TNA%2520European%2520%2526%2520Domestic%2520Auto%2520Parts&tk1=transient">Request_Quote</a></td></tr></table>`,
+  );
+  assertEquals(listing.recycler?.name, "TNA European & Domestic Auto Parts");
+  assertEquals(listing.quoteUrl?.includes("tk1="), false);
+});
