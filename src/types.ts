@@ -30,6 +30,8 @@ export interface CarPartListing {
   grade?: string;
   stockNumber?: string;
   price?: { amount?: number; currency?: string; display: string };
+  /** Source price-cell qualifier such as `actual`; never recycler data. */
+  priceQualifier?: string;
   recycler?: { name?: string; location?: string; phone?: string };
   sellerUserId?: string;
   partSourceId?: string;

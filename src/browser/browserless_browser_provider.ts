@@ -3,7 +3,10 @@ import type { BrowserProvider, BrowserSession } from "./car_part_browser.ts";
 import { SpikeError } from "../types.ts";
 
 const defaultEndpoint = "wss://production-sfo.browserless.io";
-const sessionTimeoutMs = 60_000;
+const sessionTimeoutMs = Math.min(
+  Math.max(Number(Deno.env.get("BROWSERLESS_SESSION_TIMEOUT_MS") ?? 60_000), 60_000),
+  300_000,
+);
 
 function sanitizeRemoteCause(cause: unknown): string {
   return String(cause).replace(/([?&]token=)[^&\s)]+/gi, "$1<redacted>");

@@ -114,6 +114,13 @@ function directPrice(cell: any): string | undefined {
   return /\b(?:call|quote|n\/?a)\b/i.test(visible) ? visible : undefined;
 }
 
+function priceQualifier(cell: any, display: string | undefined): string | undefined {
+  const visible = text(cell);
+  if (!visible || !display) return undefined;
+  const qualifier = visible.replace(display, "").trim();
+  return /^[a-z][a-z\s-]{1,40}$/i.test(qualifier) ? qualifier : undefined;
+}
+
 function sourcePhoto(cell: any): { imageUrl?: string; photoUrl?: string } {
   const image = [...cell.querySelectorAll("img[src]")].find((item: any) =>
     !/btn_livechat/i.test(item.getAttribute("src") ?? "")
@@ -178,6 +185,7 @@ export function parseResults(html: string): CarPartListing[] {
       grade: text(cells[fallback.get("grade")!]),
       stockNumber: text(cells[fallback.get("stockNumber")!]),
       price: parsePrice(directPrice(cells[fallback.get("price")!])),
+      priceQualifier: priceQualifier(cells[fallback.get("price")!], directPrice(cells[fallback.get("price")!])),
       recycler: recyclerFrom(recyclerCell),
       sellerUserId: urlParam(quoteLink?.href, "selleruserid"),
       partSourceId: urlParam(identityUrl, "partsourceid"),
