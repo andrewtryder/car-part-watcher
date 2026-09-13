@@ -36,3 +36,13 @@ The managed-database CLI query endpoint returned an upstream
 `databases.executeQuery` procedure-not-found error during this verification, so
 schema verification used the application’s normal persisted catalog and watch
 operations instead. No diagnostic endpoint was added.
+
+## Listing reconciliation verification
+
+Deploy build revision `7rwq50evdqey` applied
+`002_listing_reconciliation.sql`. A temporary Accord Alternator watch ran twice
+through Browserless: run `32c2b487-69af-4f40-ba1d-17676d4fd2fd` found 177
+listings across 4 pages and created 177 watch/listing relationships in 24.2 s;
+run `7c88e545-54f7-40ee-9728-5a8d524cfd11` found the same 177 listings across
+4 pages in 23.7 s with zero new relationships and 21 mutable updates. The
+temporary watch was deleted afterwards; global listing history was retained.

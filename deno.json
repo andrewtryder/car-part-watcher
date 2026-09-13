@@ -19,5 +19,3 @@
     "runtime": { "type": "dynamic", "entrypoint": "main.ts" }
   }
 }
-
-
