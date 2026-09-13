@@ -103,8 +103,14 @@ export function parseResults(html: string): CarPartListing[] {
 }
 
 export function hasNextResultsPage(html: string): boolean {
+  return Boolean(nextResultsPageHref(html));
+}
+
+/** Returns only the source-provided forward link; never invents a page URL. */
+export function nextResultsPageHref(html: string, currentPage = 1): string | undefined {
   const document = (parseHTML(html) as unknown as { document: any }).document;
-  return !![...(document?.querySelectorAll("a[href*='userPage=']") ?? [])].find(
-    (link) => /^\*?\d+$/.test(link.textContent?.trim() ?? ""),
-  );
+  const links = [...(document?.querySelectorAll("a[href*='userPage=']") ?? [])] as any[];
+  const link = links.find((candidate) => /^\*\d+$/.test(candidate.textContent?.trim() ?? "")) ??
+    links.find((candidate) => Number(candidate.textContent?.trim()) > currentPage);
+  return link?.getAttribute("href") ?? undefined;
 }

@@ -11,6 +11,11 @@ metadata as JSONB; `watches` stores durable, human-readable search intent and
 refinement labels. Session IDs, opaque interchange values, cookies, Browserless
 state, and selector internals are intentionally never persisted.
 
+`002_listing_reconciliation.sql` adds global `listings` (`source`, `source_key`
+unique), per-watch `watch_listings`, and `search_runs`. Deleting a watch removes
+only its relationships and runs, not the global listing. Indexes support watch
+run history and last-seen inspection.
+
 ## Deployment verification
 
 Production revision `aherdknfyxzr` routed on 2026-09-13 with the

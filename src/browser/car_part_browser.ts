@@ -5,7 +5,7 @@ import {
   type Page,
 } from "npm:playwright@1.58.2";
 import { parseRefinementChoices } from "../parsers/refinement.ts";
-import { hasNextResultsPage, parseResults } from "../parsers/results.ts";
+import { hasNextResultsPage, nextResultsPageHref, parseResults } from "../parsers/results.ts";
 import { parseSearchOptions } from "../parsers/search_options.ts";
 import type {
   BrowserRuntimeInfo,
@@ -375,7 +375,7 @@ export async function runCarPartSearch(
     }
     recordStage("results page reached");
     const parseBeganAt = performance.now();
-    const html = await page.content();
+    let html = await page.content();
     const listings = parseResults(html);
     if (!listings.length) {
       throw new SpikeError(
@@ -386,14 +386,40 @@ export async function runCarPartSearch(
     timings.resultParseMs = Math.round(performance.now() - parseBeganAt);
     recordStage("results parsed");
     if (listings.length === 50) recordStage("50 listings parsed");
+    let pagesFetched = 1;
+    const visited = new Set([page.url()]);
+    while (true) {
+      const currentPage = Number(new URL(page.url()).searchParams.get("userPage") ?? "1") || 1;
+      const next = nextResultsPageHref(html, currentPage);
+      if (!next) break;
+      if (pagesFetched >= 20) {
+        throw new SpikeError("RESULTS_PARSE_FAILED", "Result pagination exceeded the 20-page safety limit");
+      }
+      const nextUrl = new URL(next, page.url()).href;
+      if (visited.has(nextUrl)) {
+        throw new SpikeError("RESULTS_PARSE_FAILED", "Result pagination repeated a page URL");
+      }
+      visited.add(nextUrl);
+      recordStage("next-page detected");
+      await page.goto(nextUrl, { waitUntil: "domcontentloaded" });
+      if (await detectPageType(page) !== "results") {
+        throw new SpikeError("RESULTS_PARSE_FAILED", "Pagination did not return a results page");
+      }
+      html = await page.content();
+      const nextListings = parseResults(html);
+      if (!nextListings.length) {
+        throw new SpikeError("RESULTS_PARSE_FAILED", "A paginated results page had no parseable listing rows");
+      }
+      listings.push(...nextListings);
+      pagesFetched++;
+    }
     const hasNextPage = hasNextResultsPage(html);
-    if (hasNextPage) recordStage("next-page detected");
     timings.totalMs = Math.round(performance.now() - startedAt);
     return {
       search: request,
       refinement,
       results: {
-        count: listings.length,
+        count: listings.length, pagesFetched,
         hasNextPage,
         listings,
       },

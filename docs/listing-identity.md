@@ -32,3 +32,8 @@ The primary can likewise split when Car-Part omits or changes seller identity.
 Neither candidate has yet been tested across inventory turnover, searches with
 different scopes, or a long time range. Source-key collisions and any future
 identity migration must be treated as data-quality events, not silently merged.
+
+The durable application key is `car-part:v1:sha256:<digest>` over a canonical
+UTF-8 identity string and records `seller_stock_part` or `fallback_composite`
+as its internal confidence method. It is not derived from mutable display
+values or opaque Car-Part session values.

@@ -53,7 +53,7 @@ Deno.test("first successful result creates a listing and watch association", asy
     assertEquals(summary.newForWatch, 1);
     assertEquals(summary.newListings.length, 1);
     assertEquals(summary.updatedListings, 0);
-    const stored = await store.getListing(sourceKey(listing)!);
+    const stored = await store.getListing((await sourceKey(listing))!);
     assertExists(stored);
     assertEquals(stored.listing.price?.amount, 107);
     assertExists(await store.getWatchListing(watch.id, stored.id));
@@ -82,7 +82,7 @@ Deno.test("repeat result is not new and updates mutable listing fields", async (
     );
     assertEquals(summary.newForWatch, 0);
     assertEquals(summary.updatedListings, 1);
-    const stored = await store.getListing(sourceKey(listing)!);
+    const stored = await store.getListing((await sourceKey(listing))!);
     assertEquals(stored?.listing.price?.amount, 125);
     assertEquals(stored?.listing.grade, "A");
     assertEquals(stored?.listing.description, "Repriced alternator");
@@ -122,7 +122,7 @@ Deno.test("failed source search records a failed run without listing writes", as
     ) runs.push(entry.value);
     assertEquals(runs.length, 1);
     assertEquals(runs[0].status, "failed");
-    assertEquals(await store.getListing(sourceKey(listing)!), undefined);
+    assertEquals(await store.getListing((await sourceKey(listing))!), undefined);
   } finally {
     await kv.close();
   }

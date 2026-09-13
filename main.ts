@@ -1,9 +1,11 @@
 import { getCatalog, refreshCatalog } from "./src/services/catalog_service.ts";
 import {
   deleteWatch,
+  executeWatch,
   getWatch,
   listWatches,
   resolveWatch,
+  listSearchRuns,
   saveWatch,
   validateWatch,
 } from "./src/services/watch_service.ts";
@@ -79,6 +81,10 @@ Deno.serve(async (req) => {
       );
     }
     const id = url.pathname.match(/^\/api\/watches\/([\w-]+)$/)?.[1];
+    const runId = url.pathname.match(/^\/api\/watches\/([\w-]+)\/run$/)?.[1];
+    if (runId && req.method === "POST") return json(await executeWatch(runId));
+    const historyId = url.pathname.match(/^\/api\/watches\/([\w-]+)\/runs$/)?.[1];
+    if (historyId && req.method === "GET") return json(await listSearchRuns(historyId));
     if (id && req.method === "GET") {
       const w = await getWatch(id);
       return w ? json(w) : json({ error: "Not found" }, 404);

@@ -142,7 +142,7 @@ export class WatchStore {
     let updatedListings = 0;
     const newListings: CarPartListing[] = [];
     for (const rawListing of result.results.listings) {
-      const stableKey = sourceKey(rawListing);
+      const stableKey = await sourceKey(rawListing);
       if (!stableKey) continue;
       const listingKey: Deno.KvKey = ["listings", "car-part", stableKey];
       const existing = (await this.kv.get<Listing>(listingKey)).value;

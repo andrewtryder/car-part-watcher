@@ -1,7 +1,5 @@
-import {
-  ChromeBrowserProvider,
-  runCarPartSearch,
-} from "./browser/car_part_browser.ts";
+import { runCarPartSearch } from "./browser/car_part_browser.ts";
+import { BrowserlessBrowserProvider } from "./browser/browserless_browser_provider.ts";
 import type { CarPartListing } from "./types.ts";
 
 type Candidate =
@@ -63,10 +61,10 @@ function changed(first: CarPartListing, second: CarPartListing) {
 }
 
 const first = await runCarPartSearch(
-  new ChromeBrowserProvider("chrome-headed"),
+  new BrowserlessBrowserProvider(),
 );
 const second = await runCarPartSearch(
-  new ChromeBrowserProvider("chrome-headed"),
+  new BrowserlessBrowserProvider(),
 );
 const candidates: Candidate[] = [
   "partGuid",
