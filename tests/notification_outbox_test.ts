@@ -15,8 +15,7 @@ import {
 } from "../src/services/notification_service.ts";
 import {
   createNewListingEvent,
-  listNotificationEvents,
-} from "../repositories/../src/repositories/notification_repository.ts";
+} from "../src/repositories/notification_repository.ts";
 import { createSearchRun } from "../src/repositories/search_run_repository.ts";
 import { getDatabase } from "../src/db/database.ts";
 import type { NormalizedListing } from "../src/listing_normalizer.ts";
