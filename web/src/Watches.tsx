@@ -5,6 +5,7 @@ import {
   catalog,
   dashboard,
   deleteWatch,
+  refreshUnreadCount,
   resolveWatch,
   runWatch,
   saveWatch,
@@ -153,6 +154,7 @@ export function WatchList() {
       const result = await runWatch(item.id);
       setMessage(`${item.name}: ${result.newListingCount ?? 0} new listings.`);
       await load();
+      refreshUnreadCount();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Run failed");
     }

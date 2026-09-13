@@ -66,25 +66,41 @@ export const refreshCatalog = () =>
   });
 export type Notification = {
   id: string;
+  watchId: string;
+  createdAt: string;
   readAt?: string;
   payload: {
-    watch: { name: string };
+    watch: { id: string; name: string };
     listing: {
+      id: string;
       title: string;
       price?: string;
       recyclerName?: string;
       location?: string;
+      stockNumber?: string;
+      description?: string;
+      grade?: string;
     };
   };
 };
-export const notifications = (all = false) =>
+export const notifications = (
+  options: { all?: boolean; watchId?: string } = {},
+) =>
   call<{ items: Notification[]; unreadCount: number }>(
-    `/api/notifications?status=${all ? "all" : "unread"}`,
+    `/api/notifications?status=${options.all ? "all" : "unread"}${
+      options.watchId ? `&watchId=${encodeURIComponent(options.watchId)}` : ""
+    }`,
   );
 export const markRead = (id: string) =>
   call<{ ok: true }>(`/api/notifications/${id}/read`, { method: "POST" });
-export const markAllRead = () =>
-  call<{ ok: true }>("/api/notifications/mark-all-read", { method: "POST" });
+export const markAllRead = (watchId?: string) =>
+  call<{ ok: true }>("/api/notifications/mark-all-read", {
+    method: "POST",
+    headers: watchId ? { "content-type": "application/json" } : undefined,
+    body: watchId ? JSON.stringify({ watchId }) : undefined,
+  });
+export const refreshUnreadCount = () =>
+  globalThis.dispatchEvent(new Event("new-parts-count-changed"));
 
 export type SelectOption = { label: string; value: string };
 export type Catalog = {
@@ -163,3 +179,5 @@ export const watchListings = (id: string) =>
   call<WatchListing[]>(`/api/watches/${id}/listings`);
 export const watchRuns = (id: string) => call<Run[]>(`/api/watches/${id}/runs`);
 export const system = () => call<SystemStatus>("/api/system");
+export const recentRuns = () =>
+  call<Array<Run & { watchId: string; watchName: string }>>("/api/runs");
