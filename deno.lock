@@ -7,6 +7,7 @@
     "jsr:@cliffy/table@1.2.1": "1.2.1",
     "jsr:@david/jsonc-morph@~0.3.4": "0.3.5",
     "jsr:@deno/deploy@*": "0.0.9904",
+    "jsr:@deno/deploy@0.0.9904": "0.0.9904",
     "jsr:@deno/framework-detect@0.3": "0.3.0",
     "jsr:@deno/sandbox@~0.13.2": "0.13.2",
     "jsr:@std/assert@1.0.19": "1.0.19",
@@ -36,6 +37,7 @@
     "npm:pg-connection-string@^2.14.0": "2.14.0",
     "npm:playwright-core@1.58.2": "1.58.2",
     "npm:playwright@1.58.2": "1.58.2",
+    "npm:postgres@3.4.7": "3.4.7",
     "npm:superjson@^2.2.6": "2.2.6",
     "npm:temporal-polyfill@~0.3.2": "0.3.2",
     "npm:ws@^8.18.3": "8.21.3",
@@ -443,6 +445,9 @@
         "fsevents"
       ],
       "bin": true
+    },
+    "postgres@3.4.7": {
+      "integrity": "sha512-Jtc2612XINuBjIl/QTWsV5UvE8UHuNblcO3vVADSrKsrc6RqGX6lOW1cEo3CM2v0XG4Nat8nI+YM7/f26VxXLw=="
     },
     "run-applescript@7.1.0": {
       "integrity": "sha512-DPe5pVFaAsinSaV6QjQ6gdiedWDcRCbUuiQfQa2wmWV7+xC9bGulGI8+TdRmoFkAPaBXk8CrAbnlY2ISniJ47Q=="

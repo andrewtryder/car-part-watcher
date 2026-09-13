@@ -8,11 +8,15 @@
     "browser-matrix": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_matrix.ts",
     "identity:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/listing_identity_spike.ts",
     "serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys main.ts",
-    "worker:serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_worker.ts"
+    "worker:serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_worker.ts",
+    "migrate": "deno run --allow-env --allow-net --allow-read scripts/migrate.ts"
   },
   "unstable": ["kv"],
   "deploy": {
     "org": "andrewtryder",
-    "app": "car-part-watcher"
+    "app": "car-part-watcher",
+    "predeploy": "./scripts/predeploy.sh",
+    "runtime": { "type": "dynamic", "entrypoint": "main.ts" }
   }
 }
+

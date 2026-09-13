@@ -179,6 +179,77 @@ async function submit(page: Page, selector: string) {
   ]);
 }
 
+/** Opens the source homepage and returns only its durable selector catalog. */
+export async function loadCarPartCatalog(
+  provider: BrowserProvider,
+): Promise<SearchOptions> {
+  const session = await provider.createSession();
+  try {
+    const page = session.page ?? await session.context.newPage();
+    await page.goto(homeUrl, { waitUntil: "domcontentloaded" });
+    return await getSearchOptions(page);
+  } finally {
+    await session.close();
+  }
+}
+
+/** Resolves only current human-visible refinement labels; no opaque server state escapes. */
+export async function discoverCarPartRefinement(
+  provider: BrowserProvider,
+  request: CarPartSearchRequest,
+): Promise<
+  { status: "refinement_required"; choices: { label: string }[] } | {
+    status: "ready";
+  }
+> {
+  const session = await provider.createSession();
+  try {
+    const page = session.page ?? await session.context.newPage();
+    await page.goto(homeUrl, { waitUntil: "domcontentloaded" });
+    const options = await getSearchOptions(page);
+    await page.selectOption(
+      "select[name='userDate']",
+      optionValue(options, "years", request.year),
+    );
+    await page.selectOption(
+      "select[name='userModel']",
+      optionValue(options, "makeModels", request.makeModel),
+    );
+    await page.selectOption(
+      "select[name='userPart']",
+      optionValue(options, "parts", request.part),
+    );
+    if (request.location) {
+      await page.selectOption(
+        "select[name='userLocation']",
+        optionValue(options, "locations", request.location),
+      );
+    }
+    await page.selectOption(
+      "select[name='userPreference']",
+      optionValue(options, "sorts", request.sort),
+    );
+    if (request.postalCode) {
+      await page.locator("input[name='userZip']").fill(request.postalCode);
+    }
+    await submit(page, "input[name='Search Car Part Inventory']");
+    if (await detectPageType(page) === "results") return { status: "ready" };
+    const labels = parseRefinementChoices(await page.content());
+    if (!labels.length) {
+      throw new SpikeError(
+        "REFINEMENT_PARSE_FAILED",
+        "Refinement page did not expose any visible choices",
+      );
+    }
+    return {
+      status: "refinement_required",
+      choices: labels.map((label) => ({ label })),
+    };
+  } finally {
+    await session.close();
+  }
+}
+
 export async function runCarPartSearch(
   provider: BrowserProvider,
   request = representativeSearch,
