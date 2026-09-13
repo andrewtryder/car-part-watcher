@@ -1,4 +1,5 @@
 {
+  "nodeModulesDir": "auto",
   "tasks": {
     "check": "deno check main.ts src/spike.ts src/browser_worker.ts src/browserless_spike.ts",
     "test": "deno test",
@@ -9,13 +10,27 @@
     "identity:spike": "deno run --unsafe-proto --allow-env --allow-net --allow-read --allow-sys src/listing_identity_spike.ts",
     "serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys main.ts",
     "worker:serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_worker.ts",
-    "migrate": "deno run --allow-env --allow-net --allow-read scripts/migrate.ts"
+    "migrate": "deno run --allow-env --allow-net --allow-read scripts/migrate.ts",
+    "web:dev": "deno run -A npm:vite --config web/vite.config.ts --host 0.0.0.0",
+    "web:build": "deno run -A npm:vite build --config web/vite.config.ts",
+    "web:preview": "deno run -A npm:vite preview --config web/vite.config.ts --host 0.0.0.0",
+    "build": "deno task web:build && deno task check"
   },
   "unstable": ["kv", "cron"],
   "deploy": {
     "org": "andrewtryder",
     "app": "car-part-watcher",
+    "build": "deno task web:build",
     "predeploy": "deno task migrate",
     "runtime": { "type": "dynamic", "entrypoint": "main.ts" }
+  },
+  "imports": {
+    "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.3.3",
+    "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^6.1.1",
+    "lucide-react": "npm:lucide-react@^1.45.0",
+    "react": "npm:react@^19.3.0",
+    "react-dom": "npm:react-dom@^19.3.0",
+    "tailwindcss": "npm:tailwindcss@^4.3.3",
+    "vite": "npm:vite@^8.3.0"
   }
 }

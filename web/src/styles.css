@@ -1,0 +1,315 @@
+@import "tailwindcss";
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: #f6f7f8;
+    color: #17202a;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  button {
+    font: inherit;
+  }
+}
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+}
+aside {
+  background: #12212d;
+  color: #dbe5ea;
+  padding: 24px 14px;
+}
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: white;
+  font-weight: 700;
+  padding: 0 10px 26px;
+}
+nav {
+  display: grid;
+  gap: 4px;
+}
+nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  color: #aebcc5;
+  text-decoration: none;
+}
+nav a.active {
+  background: #1d3545;
+  color: white;
+}
+nav em {
+  margin-left: auto;
+  font-size: 11px;
+  font-style: normal;
+  color: #7b929f;
+}
+main {
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px;
+}
+header,
+.sectionHead,
+.watchTop,
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+h1 {
+  margin: 0;
+  font-size: 28px;
+}
+h2 {
+  margin: 0;
+  font-size: 18px;
+}
+h3 {
+  margin: 0;
+  font-size: 16px;
+}
+p {
+  margin: 6px 0;
+}
+.eyebrow {
+  color: #6b7881;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .09em;
+}
+.status {
+  color: #52616b;
+  font-size: 13px;
+}
+.status span {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22a06b;
+}
+.stats,
+.watchGrid,
+.twoCol {
+  display: grid;
+  gap: 16px;
+}
+.stats {
+  grid-template-columns: repeat(3,1fr);
+  margin: 28px 0;
+}
+.stat,
+.watch,
+.panel,
+.state,
+.skeleton,
+.empty {
+  background: white;
+  border: 1px solid #e1e6e9;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px #17202a08;
+}
+.stat {
+  padding: 18px;
+}
+.stat p,
+.stat small,
+.muted {
+  color: #71808a;
+  font-size: 13px;
+}
+.stat strong {
+  display: block;
+  font-size: 23px;
+  margin: 6px 0;
+}
+.section {
+  margin-top: 26px;
+}
+.watchGrid {
+  grid-template-columns: repeat(auto-fit,minmax(300px,1fr));
+  margin-top: 14px;
+}
+.watch,
+.panel {
+  padding: 20px;
+}
+.criteria {
+  color: #66757f;
+  font-size: 13px;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0;
+}
+.badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  background: #e9eef1;
+  color: #4d5e68;
+}
+.green {
+  background: #dcf5e7;
+  color: #147242;
+}
+.amber {
+  background: #fff1d0;
+  color: #8a5a00;
+}
+.red {
+  background: #fde2e2;
+  color: #a32727;
+}
+.blue {
+  background: #deefff;
+  color: #0f5c99;
+}
+.watch dl {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+  border-top: 1px solid #edf0f2;
+  padding-top: 14px;
+}
+.watch dt {
+  font-size: 11px;
+  color: #71808a;
+}
+.watch dd {
+  margin: 3px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.actions {
+  margin-top: 18px;
+}
+button {
+  border: 0;
+  border-radius: 7px;
+  padding: 8px 11px;
+  background: #176b8a;
+  color: white;
+  font-weight: 650;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.quiet {
+  background: #eef2f4;
+  color: #35444e;
+}
+.twoCol {
+  grid-template-columns: 1.7fr 1fr;
+  margin-top: 20px;
+}
+.tableWrap {
+  overflow: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th,
+td {
+  text-align: left;
+  padding: 12px 8px;
+  border-bottom: 1px solid #edf0f2;
+}
+th {
+  color: #71808a;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+td small {
+  display: block;
+  color: #71808a;
+  margin-top: 3px;
+}
+.catalogCounts {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+}
+.catalogCounts b {
+  display: inline-block;
+  min-width: 48px;
+}
+.icon {
+  padding: 8px;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+.notice {
+  padding: 10px 12px;
+  color: #125a75;
+  background: #e4f5fb;
+  border-radius: 8px;
+}
+.empty,
+.state,
+.skeleton {
+  padding: 40px;
+  text-align: center;
+  color: #62717b;
+}
+.empty svg {
+  color: #176b8a;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width:760px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+  aside {
+    padding: 14px;
+  }
+  .brand {
+    padding-bottom: 12px;
+  }
+  nav {
+    display: flex;
+    overflow: auto;
+  }
+  nav a {
+    white-space: nowrap;
+  }
+  main {
+    padding: 20px;
+  }
+  .stats,
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+  .watch dl {
+    grid-template-columns: 1fr 1fr;
+  }
+  .twoCol {
+    gap: 16px;
+  }
+}

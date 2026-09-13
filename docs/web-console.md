@@ -1,18 +1,20 @@
 # Web console
 
-Authentication is explicitly deferred by the owner for this initial personal
-console; it must be added before sharing the public URL. Refreshing the catalog
-is the only catalog operation that opens Browserless; normal console reads use
-cached Postgres data. Creating a watch first resolves current human-visible
-refinement choices, then saves only the selected label. Watches can be edited,
-toggled, and deleted. There is no scheduler or notification feature.
+The unauthenticated operational console is a React 19 + TypeScript + Vite 8
+single-page application styled with Tailwind CSS 4. Source is under `web/src`;
+Vite emits `web/dist`, which the Deno HTTP server serves while retaining `/api/*`
+for the backend.
 
-Manual watch execution is available from `POST /api/watches/:id/run`; recent
-run history is available from `GET /api/watches/:id/runs`. These are temporary
-administrative actions while console authentication remains deferred.
+Run `deno task web:dev` alongside `deno task serve` for local development. Vite
+proxies `/api` to the local Deno server. `deno task web:build` creates the
+production assets and `deno task build` also checks the backend. Deploy runs the
+web build before the existing `deno task migrate` pre-deploy migration.
 
-Scheduling and notification operational APIs are also intentionally open for
-this phase: `GET /api/system`, `GET /api/notifications`, and a slot-dispatch
-endpoint. They must receive access control before the console is shared.
+The Dashboard uses `GET /api/dashboard`, an aggregate endpoint for watches,
+latest and recent runs, catalog health, and notification counts. "New Parts"
+means `new_listing` notification events created in the last 24 hours; it does
+**not** mean unread. Read/unread and the New Parts inbox are deferred.
 
-SECURITY TODO: Administrative console is currently unauthenticated.
+Dashboard is the only completed page. Saved Searches, New Parts, Run History,
+and Settings are clear navigation placeholders. The console remains intentionally
+unauthenticated and must not be shared publicly until access control is added.

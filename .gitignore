@@ -1,8 +1,10 @@
 .env
 .env.*
 !.env.example
+node_modules/
 
 .DS_Store
 coverage/
 playwright-report/
 test-results/
+web/dist/
