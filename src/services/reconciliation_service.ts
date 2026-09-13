@@ -8,7 +8,7 @@ import { getWatch, type Watch } from "../repositories/watch_repository.ts";
 import { SpikeError } from "../types.ts";
 import { deduplicateNormalized, ListingIdentityCollisionError } from "../reconciliation.ts";
 import { createNewListingEvent } from "../repositories/notification_repository.ts";
-import { processNotificationOutbox } from "./notification_service.ts";
+import { buildNotificationEventV1, processNotificationOutbox } from "./notification_service.ts";
 
 export interface WatchRunSummary {
   runId: string; status: "succeeded"; pagesFetched: number; listingCount: number;
@@ -23,7 +23,14 @@ function safeError(error: unknown) {
   return { code: "SEARCH_FAILED", message: error instanceof Error ? error.message.slice(0, 500) : "Search failed" };
 }
 
-export async function executeWatch(watchId: string, options: { runType?: "manual" | "scheduled"; scheduledKey?: string } = {}): Promise<WatchRunSummary | undefined> {
+export async function executeWatch(
+  watchId: string,
+  options: {
+    runType?: "manual" | "scheduled";
+    scheduledKey?: string;
+    scheduleSlot?: string;
+  } = {},
+): Promise<WatchRunSummary | undefined> {
   const watch = await getWatch(watchId);
   if (!watch) throw new Error("Watch not found");
   if (!watch.enabled && options.runType === "scheduled") return undefined;
@@ -52,12 +59,37 @@ export async function executeWatch(watchId: string, options: { runType?: "manual
         pagesFetched: result.results.pagesFetched ?? 1, completedAt: new Date(),
       });
     });
-    if (hadSuccessfulRun || watch.notifyOnInitialRun) try {
-      await getDatabase().begin(async (sql) => {
-        for (const { listingId, listing } of newEventInputs) await createNewListingEvent(sql, { watchId: watch.id, searchRunId: run.id, listingId, payload: { watchName: watch.name, listingId, year: listing.year, makeModel: listing.makeModel, part: listing.part, description: listing.description, grade: listing.grade, stockNumber: listing.stockNumber, priceDisplay: listing.priceDisplay, recyclerName: listing.recyclerName, recyclerLocation: listing.recyclerLocation } });
-      });
-      await processNotificationOutbox();
-    } catch (error) { console.error("notification outbox generation failed", error instanceof Error ? error.message : "unknown"); }
+    if (hadSuccessfulRun || watch.notifyOnInitialRun) {
+      try {
+        const scheduleSlot = options.scheduleSlot ??
+          (options.runType === "scheduled" && options.scheduledKey
+            ? options.scheduledKey.split(":").pop()
+            : undefined) ??
+          "manual";
+        await getDatabase().begin(async (sql) => {
+          for (const { listingId, listing } of newEventInputs) {
+            const canonicalEvent = buildNotificationEventV1({
+              watch: { id: watch.id, name: watch.name },
+              listing: { id: listingId, listing },
+              scheduleSlot,
+            });
+            await createNewListingEvent(sql, {
+              id: canonicalEvent.eventId,
+              watchId: watch.id,
+              searchRunId: run.id,
+              listingId,
+              payload: canonicalEvent,
+            });
+          }
+        });
+        await processNotificationOutbox();
+      } catch (error) {
+        console.error(
+          "notification outbox generation failed",
+          error instanceof Error ? error.message : "unknown",
+        );
+      }
+    }
     return { runId: run.id, status: "succeeded", pagesFetched: result.results.pagesFetched ?? 1,
       listingCount: unique.size, newListingCount, changedCount,
       durationMs: Math.round(performance.now() - began), newListings };

@@ -13,7 +13,11 @@ export async function scheduledWatchDispatcher(slot: ScheduleSlot, now = new Dat
   const local = localSlot(now); if (local.hour !== slotHours[slot]) return { slot, skipped: "outside_window", attempted: 0, completed: 0, failed: 0 };
   const watches = await listScheduledWatches(slot); let completed = 0; let failed = 0;
   for (const watch of watches) try {
-    const result = await executeWatch(watch.id, { runType: "scheduled", scheduledKey: `watch:${watch.id}:${local.date}:${slot}` });
+    const result = await executeWatch(watch.id, {
+      runType: "scheduled",
+      scheduledKey: `watch:${watch.id}:${local.date}:${slot}`,
+      scheduleSlot: slot,
+    });
     if (result) completed++;
   } catch (error) { failed++; console.error(`scheduled watch ${watch.id} failed`, error instanceof Error ? error.message : "unknown"); }
   return { slot, attempted: watches.length, completed, failed };
