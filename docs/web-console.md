@@ -51,3 +51,19 @@ retries and ad-hoc use. The configured Browserless regional endpoint did not
 expose account usage statistics through its read-only `/stats` route, and no
 plan or provider settings were changed. Production log review for the two
 runs returned no error entries (only a runtime startup entry).
+
+## Corrected listing metadata — 2026-09-13
+
+Watch Detail now renders semantic damage, grade, stock number, and price from
+the corrected Car-Part result columns, rather than displaying a stock number as
+a price. It also renders source thumbnails where available and exposes only
+the source-provided `Photos` and `Request Quote` actions. Both open in a new
+tab with `noopener noreferrer`; there is intentionally no invented canonical
+"View Listing" URL.
+
+The current production `CR-V Bumper` watch uses the preserved criteria
+`2019` / `Honda CRV` / `Bumper Assy (Front) includes cover` / `All States` /
+ZIP `03873` / `fog lamps`. After the result-history reset, its 272-listing
+baseline and zero-new repeat were run through the React UI. The currently
+preserved schedule is enabled once daily, not the older three-times-daily
+configuration recorded above.

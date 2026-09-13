@@ -27,3 +27,19 @@ mutable changes. The immediate repeat run
 pages, 177 listings, 0 new-for-watch relationships, and 21 mutable changes.
 This verified that the observed mutable changes did not become false-new
 listings.
+
+## Corrected parser and identity-v2 cutover — 2026-09-13
+
+The source table gained an eight-column layout, while the prior positional
+parser treated stock and price as shifted fields. Result history was therefore
+intentionally reset after deploying the semantic-header parser and migration
+`005_corrected_listing_metadata.sql`. Watch definitions and source catalogs
+were preserved; only `listings`, `watch_listings`, `search_runs`, and
+`notification_events` were cleared.
+
+Car-Part v2 identity is `sellerUserId | stockNumber | partGuid | part` hashed
+as `car-part:v2:sha256:<digest>`. Every component is required: unsupported
+rows are skipped rather than using a legacy fallback. The CR-V production
+baseline fetched eight pages, persisted 272 identified listings, and skipped
+the remaining source rows without a complete strong identity. Its immediate
+repeat persisted 272 listings with zero new-for-watch relationships.
