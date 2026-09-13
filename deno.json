@@ -8,9 +8,12 @@
     "browserless:spike": "deno run --allow-env --allow-net --allow-write --allow-sys src/browserless_spike.ts",
     "browser-matrix": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_matrix.ts",
     "identity:spike": "deno run --unsafe-proto --allow-env --allow-net --allow-read --allow-sys src/listing_identity_spike.ts",
+    "identity-v2-gate": "deno run --unsafe-proto --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys scripts/identity_v2_gate.ts",
     "serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys main.ts",
     "worker:serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_worker.ts",
     "migrate": "deno run --allow-env --allow-net --allow-read scripts/migrate.ts",
+    "rebaseline-preflight": "deno run --unsafe-proto --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys scripts/rebaseline_preflight.ts",
+    "reset-listing-history": "deno run --allow-env --allow-net --allow-read --allow-sys scripts/reset_listing_history.ts",
     "web:dev": "deno run -A npm:vite --config web/vite.config.ts --host 0.0.0.0",
     "web:build": "deno run -A npm:vite build --config web/vite.config.ts",
     "web:preview": "deno run -A npm:vite preview --config web/vite.config.ts --host 0.0.0.0",
@@ -35,5 +38,3 @@
     "vite": "npm:vite@^8.3.0"
   }
 }
-
-

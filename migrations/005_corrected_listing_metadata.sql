@@ -1,0 +1,4 @@
+alter table listings add column if not exists damage_code text;
+alter table listings add column if not exists image_url text;
+alter table listings add column if not exists photo_url text;
+alter table listings add column if not exists quote_url text;

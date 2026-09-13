@@ -14,6 +14,7 @@ export interface NormalizedListing {
   makeModel?: string;
   part?: string;
   description?: string;
+  damageCode?: string;
   grade?: string;
   priceAmount?: number;
   priceCurrency?: string;
@@ -21,6 +22,9 @@ export interface NormalizedListing {
   recyclerName?: string;
   recyclerLocation?: string;
   recyclerPhone?: string;
+  imageUrl?: string;
+  photoUrl?: string;
+  quoteUrl?: string;
   raw: CarPartListing;
 }
 
@@ -41,17 +45,17 @@ export async function normalizeListing(raw: CarPartListing): Promise<NormalizedL
     sellerUserId: identifier(raw.sellerUserId), partSourceId: identifier(raw.partSourceId),
     partGuid: identifier(raw.partGuid), vehicleGuid: identifier(raw.vehicleGuid),
     stockNumber: clean(raw.stockNumber), year: clean(raw.year), makeModel: clean(raw.makeModel),
-    part: clean(raw.part), description: clean(raw.description), grade: clean(raw.grade),
+    part: clean(raw.part), description: clean(raw.description), damageCode: clean(raw.damageCode), grade: clean(raw.grade),
     priceAmount, priceCurrency: clean(raw.price?.currency), priceDisplay: clean(raw.price?.display),
     recyclerName: clean(raw.recycler?.name), recyclerLocation: clean(raw.recycler?.location),
-    recyclerPhone: clean(raw.recycler?.phone), raw,
+    recyclerPhone: clean(raw.recycler?.phone), imageUrl: clean(raw.imageUrl), photoUrl: clean(raw.photoUrl), quoteUrl: clean(raw.quoteUrl), raw,
   };
 }
 
 export function mutableChanges(previous: NormalizedListing, next: NormalizedListing): string[] {
   const fields: (keyof NormalizedListing)[] = [
-    "description", "grade", "priceAmount", "priceCurrency", "priceDisplay",
-    "recyclerName", "recyclerLocation", "recyclerPhone",
+    "description", "damageCode", "grade", "priceAmount", "priceCurrency", "priceDisplay",
+    "recyclerName", "recyclerLocation", "recyclerPhone", "imageUrl", "photoUrl", "quoteUrl",
   ];
   return fields.filter((field) => previous[field] !== next[field]).map(String);
 }

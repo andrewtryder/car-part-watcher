@@ -24,6 +24,7 @@ const rowToListing = (row: any): StoredListing => ({
   makeModel: row.make_model,
   part: row.part,
   description: row.description,
+  damageCode: row.damage_code,
   grade: row.grade,
   priceAmount: row.price_amount === null ? undefined : Number(row.price_amount),
   priceCurrency: row.price_currency,
@@ -31,6 +32,9 @@ const rowToListing = (row: any): StoredListing => ({
   recyclerName: row.recycler_name,
   recyclerLocation: row.recycler_location,
   recyclerPhone: row.recycler_phone,
+  imageUrl: row.image_url,
+  photoUrl: row.photo_url,
+  quoteUrl: row.quote_url,
   firstSeenAt: row.first_seen_at.toISOString(),
   lastSeenAt: row.last_seen_at.toISOString(),
   raw: {} as CarPartListing,
@@ -60,6 +64,7 @@ export async function upsertListing(
     next.makeModel ?? null,
     next.part ?? null,
     next.description ?? null,
+    next.damageCode ?? null,
     next.grade ?? null,
     next.priceAmount ?? null,
     next.priceCurrency ?? null,
@@ -67,17 +72,22 @@ export async function upsertListing(
     next.recyclerName ?? null,
     next.recyclerLocation ?? null,
     next.recyclerPhone ?? null,
+    next.imageUrl ?? null,
+    next.photoUrl ?? null,
+    next.quoteUrl ?? null,
     observedAt,
   ];
   if (!existing) {
     const id = crypto.randomUUID();
-    await sql`insert into listings (id,source,source_key,identity_method,seller_user_id,part_source_id,part_guid,vehicle_guid,stock_number,year,make_model,part,description,grade,price_amount,price_currency,price_display,recycler_name,recycler_location,recycler_phone,first_seen_at,last_seen_at) values (${id},${next.source},${next.sourceKey},${next.identityMethod},${
+    await sql`insert into listings (id,source,source_key,identity_method,seller_user_id,part_source_id,part_guid,vehicle_guid,stock_number,year,make_model,part,description,damage_code,grade,price_amount,price_currency,price_display,recycler_name,recycler_location,recycler_phone,image_url,photo_url,quote_url,first_seen_at,last_seen_at) values (${id},${next.source},${next.sourceKey},${next.identityMethod},${
       values[0]
     },${values[1]},${values[2]},${values[3]},${values[4]},${values[5]},${
       values[6]
     },${values[7]},${values[8]},${values[9]},${values[10]},${values[11]},${
       values[12]
-    },${values[13]},${values[14]},${values[15]},${observedAt},${observedAt})`;
+    },${values[13]},${values[14]},${values[15]},${values[16]},${values[17]},${
+      values[18]
+    },${observedAt},${observedAt})`;
     return { id, isNew: true, changedFields: [] as string[] };
   }
   const changedFields = (await import("../listing_normalizer.ts"))
@@ -88,12 +98,13 @@ export async function upsertListing(
     values[3]
   },stock_number=${values[4]},year=${values[5]},make_model=${values[6]},part=${
     values[7]
-  },description=${values[8]},grade=${values[9]},price_amount=${
-    values[10]
-  },price_currency=${values[11]},price_display=${values[12]},recycler_name=${
-    values[13]
-  },recycler_location=${values[14]},recycler_phone=${
-    values[15]
+  },description=${values[8]},damage_code=${values[9]},grade=${values[10]},price_amount=${
+    values[11]
+  },price_currency=${values[12]},price_display=${values[13]},recycler_name=${
+    values[14]
+  },recycler_location=${values[15]},recycler_phone=${values[16]},image_url=${
+    values[17]
+  },photo_url=${values[18]},quote_url=${values[19]
   },last_seen_at=${observedAt},updated_at=${observedAt} where id=${existing.id}`;
   return { id: existing.id, isNew: false, changedFields };
 }

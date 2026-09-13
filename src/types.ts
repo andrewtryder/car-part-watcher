@@ -26,15 +26,20 @@ export interface CarPartListing {
   makeModel?: string;
   part?: string;
   description?: string;
+  damageCode?: string;
   grade?: string;
   stockNumber?: string;
   price?: { amount?: number; currency?: string; display: string };
+  /** Source price-cell qualifier such as `actual`; never recycler data. */
+  priceQualifier?: string;
   recycler?: { name?: string; location?: string; phone?: string };
   sellerUserId?: string;
   partSourceId?: string;
   partGuid?: string;
   vehicleGuid?: string;
   imageUrl?: string;
+  /** Source-provided photo/detail context; not an invented listing URL. */
+  photoUrl?: string;
   quoteUrl?: string;
 }
 
