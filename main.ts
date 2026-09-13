@@ -1,10 +1,17 @@
 import { CarPartRemoteSource, SourceError } from "./src/parts_source.ts";
+import { BrowserlessBrowserProvider } from "./src/browser/browserless_browser_provider.ts";
+import { runCarPartSearch } from "./src/browser/car_part_browser.ts";
+import { SpikeError } from "./src/types.ts";
 import { WatchStore } from "./src/watch_store.ts";
 import type { CarPartSearchRequest } from "./src/types.ts";
 
-const kv = await Deno.openKv();
-const store = new WatchStore(kv);
 const manualToken = Deno.env.get("MANUAL_RUN_TOKEN");
+const searchSpikeToken = Deno.env.get("SEARCH_SPIKE_TOKEN");
+let storePromise: Promise<WatchStore> | undefined;
+
+function store() {
+  return storePromise ??= Deno.openKv().then((kv) => new WatchStore(kv));
+}
 
 function json(value: unknown, status = 200) {
   return Response.json(value, { status });
@@ -36,6 +43,31 @@ Deno.serve(async (request) => {
   if (!url.pathname.startsWith("/_dev/")) {
     return new Response("Not found", { status: 404 });
   }
+  if (url.pathname === "/_dev/search-spike") {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", {
+        status: 405,
+        headers: { Allow: "POST" },
+      });
+    }
+    if (
+      !searchSpikeToken ||
+      request.headers.get("authorization") !== `Bearer ${searchSpikeToken}`
+    ) {
+      return new Response("Not found", { status: 404 });
+    }
+    if (url.searchParams.get("runtime") !== "browserless") {
+      return new Response("Not found", { status: 404 });
+    }
+    try {
+      return json(await runCarPartSearch(new BrowserlessBrowserProvider()));
+    } catch (error) {
+      const body = error instanceof SpikeError ? error.toJSON() : {
+        error: { code: "UNEXPECTED_PAGE", message: "Unexpected spike failure" },
+      };
+      return json(body, 502);
+    }
+  }
   if (!isAuthorized(request)) return new Response("Not found", { status: 404 });
 
   if (url.pathname === "/_dev/watches" && request.method === "POST") {
@@ -45,19 +77,21 @@ Deno.serve(async (request) => {
         error: { code: "INVALID_REQUEST", message: "Invalid watch request" },
       }, 400);
     }
-    return json(await store.createWatch(body), 201);
+    return json(await (await store()).createWatch(body), 201);
   }
 
   const match = url.pathname.match(/^\/_dev\/watches\/([^/]+)\/run$/);
   if (match && request.method === "POST") {
-    const watch = await store.getWatch(match[1]);
+    const watch = await (await store()).getWatch(match[1]);
     if (!watch) {
       return json({
         error: { code: "WATCH_NOT_FOUND", message: "Watch not found" },
       }, 404);
     }
     try {
-      return json(await store.runWatch(watch, new CarPartRemoteSource()));
+      return json(
+        await (await store()).runWatch(watch, new CarPartRemoteSource()),
+      );
     } catch (error) {
       const safe = error instanceof SourceError
         ? { code: error.code, message: error.message }

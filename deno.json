@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "check": "deno check main.ts src/spike.ts src/browser_worker.ts",
+    "check": "deno check main.ts src/spike.ts src/browser_worker.ts src/browserless_spike.ts",
     "test": "deno test",
     "search:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/spike.ts",
     "lightpanda:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/lightpanda_spike.ts",

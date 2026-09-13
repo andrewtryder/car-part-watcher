@@ -90,6 +90,15 @@ export class BrowserlessBrowserProvider implements BrowserProvider {
       context,
       page,
       timings: { sessionCreateMs: cdpConnectMs, cdpConnectMs },
+      runtimeInfo: {
+        distribution: "Google Chrome via Browserless",
+        renderingMode: "headed",
+        browserVersion: browser.version(),
+        executableSelection: "Browserless /chrome CDP endpoint",
+        os: "managed by Browserless",
+        viewport: { width: 1280, height: 900 },
+        display: true,
+      },
       async close() {
         await browser.close().catch(() => undefined);
       },

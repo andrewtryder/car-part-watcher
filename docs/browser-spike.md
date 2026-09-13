@@ -249,64 +249,71 @@ browser within the request window. Happy DOM cannot complete ordinary
 navigation. Keep the existing `BrowserProvider` boundary and add a remote
 headed-Chrome/CDP provider only after choosing an approved browser host.
 
-## Remote Headed Chrome Experiment
-
-`BrowserlessBrowserProvider` is the optional remote-hosted Chrome provider. It
-is limited to session creation; the existing Car-Part flow, challenge detection,
-form handling, and parsing are unchanged. It uses `npm:playwright-core@1.58.2`
-with `chromium.connectOverCDP()` and reuses the default Browserless context/page
-rather than creating a disconnected context.
+## Browserless Remote Chrome Experiment
 
 ### Configuration
 
-- The default region is Browserless US West:
-  `wss://production-sfo.browserless.io`; `BROWSERLESS_ENDPOINT` may replace the
-  service origin (or its `/chrome` path).
-- The provider always selects Browserless's `/chrome` CDP route: ordinary
-  licensed Google Chrome, not Chromium.
-- It requests `headless=false`, `--window-size=1280,900`, and a 60-second
-  Browserless session timeout. Playwright's CDP connection timeout is 15
-  seconds.
-- `BROWSERLESS_API_KEY` is required and is added only to the connection URL at
-  runtime. It is not logged or returned; connection-error sanitization redacts a
-  token query value.
-- No stealth route, proxy, CAPTCHA solving, BrowserQL, profile, custom
-  user-agent, header manipulation, or fingerprint override is configured.
+`BrowserlessBrowserProvider` keeps browser infrastructure separate from the
+existing Car-Part Playwright flow. It uses `npm:playwright-core@1.58.2` and
+Chrome DevTools Protocol `chromium.connectOverCDP()` to Browserless shared-cloud
+US West. The provider resolves the service origin to the normal Google Chrome
+`/chrome` route, asks for `headless=false`, a 1280x900 window, and Browserless's
+60-second session timeout. Its 15-second CDP connection limit is local only.
 
-Run the local remote-CDP spike once after setting `BROWSERLESS_API_KEY`:
+The credential is `BROWSERLESS_API_KEY`; `BROWSERLESS_TOKEN` is only a
+compatibility alias. `BROWSERLESS_ENDPOINT` is optional and defaults to
+`wss://production-sfo.browserless.io`. The authenticated URL is never logged;
+connection errors redact `token` values. Browserless's supplied default context
+and page are reused for the full homepage → initial form → refinement → results
+flow. No stealth route, proxy, CAPTCHA solving, BrowserQL, profile, custom
+headers/user agent, emulation, or fingerprint modification is enabled.
+
+Reproduce the local checks after loading an uncommitted `.env`:
 
 ```sh
+deno task browserless:spike -- --launch-only
 deno task browserless:spike
 ```
 
-It records provider/search stages, coarse creation/CDP/homepage/form/parse/total
-timings, and closes the remote browser in `finally`, including for challenges
-and failures. Remote provider failures have distinct
-`REMOTE_BROWSER_CREATE_FAILED` and `REMOTE_CDP_CONNECTION_FAILED` codes; a
-Car-Part challenge remains `ACCESS_CHALLENGE` and carries its current stage.
+### Infrastructure validation
 
-### Result
+On 2026-09-12, the API-key-presence check resolved Browserless to
+`production-sfo.browserless.io` without exposing the key. A harmless
+`about:blank` session created and closed cleanly: remote session creation and
+CDP connection succeeded, the default context/page was controllable, and
+Browserless reported Google Chrome `153.0.8010.36`.
 
-On 2026-09-12, the shared-cloud Browserless API key first passed a read-only
-`example.com` screenshot check (HTTP 200; the temporary PNG was deleted). One
-local remote-CDP run then completed the representative search with ordinary
-Chrome, `headless=false`: 50 listings, `hasNextPage: true`, no
-`ACCESS_CHALLENGE`, and clean session closure. Timings were 1.5 s CDP connect,
-0.8 s homepage, 1.4 s initial submit, 1.5 s refinement submit, 0.2 s parse, and
-10.4 s total. No Browserless-specific stealth, proxy, profile, CAPTCHA, or other
-identity feature was enabled.
+### Local Browserless result
 
-| Runtime                      | Search works                                    | Challenge    | Startup/connect      | Total run     |
-| ---------------------------- | ----------------------------------------------- | ------------ | -------------------- | ------------- |
-| Local headed Chrome          | Yes, 50 listings                                | No           | Not separately timed | A few seconds |
-| Browserless from local Deno  | Yes, 50 listings                                | No           | 1.5 s CDP connect    | 10.4 s        |
-| Browserless from Deno Deploy | Not run: local remote success is required first | Not observed | Not observed         | Not observed  |
+One local Deno → Browserless → Car-Part run succeeded. It reached homepage load,
+option parse, initial submit, refinement detection/submission, result
+detection/parsing, 50 listings, and next-page detection; no `ACCESS_CHALLENGE`
+occurred. Timings: session/CDP 1355 ms, homepage 672 ms, initial submit 1480 ms,
+refinement submit 1502 ms, result parse 240 ms, and total 10,181 ms. The session
+closed in `finally`.
 
-### Recommendation
+### Deno Deploy Browserless result
 
-Browserless is a working optional remote-browser host for this representative
-flow. The self-hosted Linux/Xvfb worker remains the preferred production
-boundary because it is already validated and has simpler data/control ownership.
+The existing Deploy app received `BROWSERLESS_API_KEY` as a secret. A narrowly
+protected `POST /_dev/search-spike?runtime=browserless` route uses the same
+provider and requires `SEARCH_SPIKE_TOKEN`; no unrestricted provider selector
+was added. One Deno Deploy → Browserless → Car-Part run succeeded: 50 listings,
+`hasNextPage: true`, no challenge, Chrome `153.0.8010.36`, and clean session
+closure. Timings: session/CDP 1246 ms, homepage 668 ms, initial submit 1062 ms,
+refinement submit 919 ms, result parse 92 ms, total 6891 ms.
+
+### Browser-hosting decision matrix
+
+| Runtime       | Host               | Chrome mode               | Search works | Challenge |             Listings |                  Total time | Infra we manage |
+| ------------- | ------------------ | ------------------------- | ------------ | --------- | -------------------: | --------------------------: | --------------- |
+| Local Chrome  | developer machine  | headed                    | yes          | no        |          50 observed |        previous measurement | local desktop   |
+| Chrome + Xvfb | local Docker/Linux | headed                    | yes          | no        |                   50 |                      ~5.8 s | Chrome + Xvfb   |
+| Browserless   | Browserless cloud  | headed (`headless=false`) | yes          | no        | 50 local / 50 Deploy | 10.2 s local / 6.9 s Deploy | none            |
+
+Browserless provides managed Chrome and lifecycle infrastructure over
+CDP/WebSocket, so no Xvfb/browser host needs operation. The self-hosted
+alternative still needs a Linux host, Chrome installation/updates, Xvfb, and
+worker supervision, but is the known-good independent fallback.
 
 ## Chrome Execution Mode Matrix
 
@@ -410,18 +417,34 @@ regular managed Chromium new-headless distribution.
 5. **Which successful mode has the lowest practical resource cost?** Xvfb adds a
    small display-server process but does not make Chrome lightweight; resource
    optimization was not the purpose of this successful compatibility result.
-6. **Does Browserless remain necessary?** No. It is optional hosting, not a
-   requirement.
+6. **Does Browserless remain necessary?** It is not required, but it is now a
+   validated managed browser-host option.
 7. **What browser-host architecture should be used next?**
    `Deno Deploy →
    authenticated CDP or internal RPC → Linux worker (Xvfb + Google Chrome,
    headless:false) → Car-Part`.
 
-### Final conclusion
+## Browser Runtime Recommendation
 
-Chrome 153 unified/new headless and the lightweight headless shell were both
-challenged, while normal headed Chrome under Xvfb succeeded. A physical desktop
-is not required; normal headed Chrome behavior with a graphical display server
-is sufficient in this local Linux test. A self-hosted Linux browser worker is
-therefore viable and Browserless is optional. No further compatibility modes
-were tested.
+1. **Does ordinary Browserless Google Chrome with `headless=false` complete the
+   Car-Part search?** Yes: it completed the representative search locally with
+   50 listings and a next page.
+2. **Does the same provider work from Deno Deploy?** Yes: one protected Deploy
+   invocation also returned 50 listings and a next page.
+3. **Does Browserless receive `ACCESS_CHALLENGE`?** Not in either successful
+   Browserless run.
+4. **How does it compare with the ~5.8-second Xvfb baseline?** The local
+   Browserless run took 10.2 seconds; the Deploy run took 6.9 seconds. Both are
+   within the small-sample range, but neither is faster than the local Xvfb
+   baseline.
+5. **Does it eliminate Chrome/Xvfb operation?** Yes. Browserless manages the
+   Chrome process and display/browser lifecycle infrastructure; the application
+   maintains only the CDP connection and existing Playwright flow.
+6. **Initial runtime:** Deno Deploy + Browserless headful Google Chrome over CDP
+   is the preferred initial production browser host.
+7. **Tested fallback:** self-hosted Linux + Xvfb + headed Google Chrome, which
+   remains a known-good independent environment.
+
+Browserless is therefore the preferred managed option, with the Linux/Xvfb
+worker retained as the tested fallback. No Browserless anti-detection feature
+was enabled or recommended.
