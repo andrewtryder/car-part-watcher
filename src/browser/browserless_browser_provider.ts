@@ -10,11 +10,12 @@ function sanitizeRemoteCause(cause: unknown): string {
 }
 
 function browserlessCdpUrl(): string {
-  const token = Deno.env.get("BROWSERLESS_TOKEN");
+  const token = Deno.env.get("BROWSERLESS_API_KEY") ??
+    Deno.env.get("BROWSERLESS_TOKEN");
   if (!token) {
     throw new SpikeError(
       "REMOTE_BROWSER_CREATE_FAILED",
-      "BROWSERLESS_TOKEN is required for the remote Chrome experiment",
+      "BROWSERLESS_API_KEY is required for the remote Chrome experiment",
       { stage: "remote_session_create" },
     );
   }

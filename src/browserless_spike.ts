@@ -9,7 +9,20 @@ try {
     undefined,
     (stage) => stages.push(stage),
   );
-  console.log(JSON.stringify({ stages, result }, null, 2));
+  console.log(JSON.stringify(
+    {
+      stages,
+      result: {
+        search: result.search,
+        refinement: result.refinement,
+        resultCount: result.results.count,
+        hasNextPage: result.results.hasNextPage,
+        timings: result.timings,
+      },
+    },
+    null,
+    2,
+  ));
 } catch (error) {
   const body = error instanceof SpikeError ? error.toJSON() : {
     error: { code: "UNEXPECTED_PAGE", message: "Unexpected spike failure" },

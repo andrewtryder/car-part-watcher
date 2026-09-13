@@ -251,8 +251,8 @@ headed-Chrome/CDP provider only after choosing an approved browser host.
 
 ## Remote Headed Chrome Experiment
 
-`BrowserlessBrowserProvider` is the first remote-hosted Chrome provider. It is
-limited to session creation; the existing Car-Part flow, challenge detection,
+`BrowserlessBrowserProvider` is the optional remote-hosted Chrome provider. It
+is limited to session creation; the existing Car-Part flow, challenge detection,
 form handling, and parsing are unchanged. It uses `npm:playwright-core@1.58.2`
 with `chromium.connectOverCDP()` and reuses the default Browserless context/page
 rather than creating a disconnected context.
@@ -267,13 +267,13 @@ rather than creating a disconnected context.
 - It requests `headless=false`, `--window-size=1280,900`, and a 60-second
   Browserless session timeout. Playwright's CDP connection timeout is 15
   seconds.
-- `BROWSERLESS_TOKEN` is required and is added only to the connection URL at
+- `BROWSERLESS_API_KEY` is required and is added only to the connection URL at
   runtime. It is not logged or returned; connection-error sanitization redacts a
   token query value.
 - No stealth route, proxy, CAPTCHA solving, BrowserQL, profile, custom
   user-agent, header manipulation, or fingerprint override is configured.
 
-Run the local remote-CDP spike once after setting `BROWSERLESS_TOKEN`:
+Run the local remote-CDP spike once after setting `BROWSERLESS_API_KEY`:
 
 ```sh
 deno task browserless:spike
@@ -287,26 +287,26 @@ Car-Part challenge remains `ACCESS_CHALLENGE` and carries its current stage.
 
 ### Result
 
-No Browserless token or endpoint is configured in this workspace, so the
-authenticated local Browserless experiment and the dependent Deno Deploy
-experiment were not run. The configuration-only invocation stopped before any
-remote or Car-Part request with `REMOTE_BROWSER_CREATE_FAILED` at
-`remote_session_create`; no credential was emitted.
+On 2026-09-12, the shared-cloud Browserless API key first passed a read-only
+`example.com` screenshot check (HTTP 200; the temporary PNG was deleted). One
+local remote-CDP run then completed the representative search with ordinary
+Chrome, `headless=false`: 50 listings, `hasNextPage: true`, no
+`ACCESS_CHALLENGE`, and clean session closure. Timings were 1.5 s CDP connect,
+0.8 s homepage, 1.4 s initial submit, 1.5 s refinement submit, 0.2 s parse, and
+10.4 s total. No Browserless-specific stealth, proxy, profile, CAPTCHA, or other
+identity feature was enabled.
 
 | Runtime                      | Search works                                    | Challenge    | Startup/connect      | Total run     |
 | ---------------------------- | ----------------------------------------------- | ------------ | -------------------- | ------------- |
 | Local headed Chrome          | Yes, 50 listings                                | No           | Not separately timed | A few seconds |
-| Browserless from local Deno  | Not run: credential absent                      | Not observed | Not observed         | Not observed  |
+| Browserless from local Deno  | Yes, 50 listings                                | No           | 1.5 s CDP connect    | 10.4 s        |
 | Browserless from Deno Deploy | Not run: local remote success is required first | Not observed | Not observed         | Not observed  |
 
 ### Recommendation
 
-**D — additional infrastructure experiment is required.** The code now offers an
-ordinary headful Google Chrome CDP session with strict cleanup and no evasion
-features, but Browserless credentials are required to establish the one
-permitted local run. If that run returns `ACCESS_CHALLENGE`, stop; if it returns
-50 listings with a next page, deploy the same configured provider to the
-protected Deno Deploy preview endpoint exactly once.
+Browserless is a working optional remote-browser host for this representative
+flow. The self-hosted Linux/Xvfb worker remains the preferred production
+boundary because it is already validated and has simpler data/control ownership.
 
 ## Chrome Execution Mode Matrix
 
