@@ -30,6 +30,7 @@
     "lucide-react": "npm:lucide-react@^1.45.0",
     "react": "npm:react@^19.3.0",
     "react-dom": "npm:react-dom@^19.3.0",
+    "react-router-dom": "npm:react-router-dom@^7.18.3",
     "tailwindcss": "npm:tailwindcss@^4.3.3",
     "vite": "npm:vite@^8.3.0"
   }

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { type Dashboard, dashboard, refreshCatalog, runWatch } from "./api.ts";
 import { Inbox } from "./Inbox.tsx";
+import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 
 const frequency = (value: number) =>
   value === 1
@@ -62,8 +63,7 @@ function Stat(
     </section>
   );
 }
-export function App() {
-  if (window.location.pathname === "/new-parts") return <Inbox />;
+export function DashboardPage() {
   const [data, setData] = useState<Dashboard>();
   const [error, setError] = useState<string>();
   const [running, setRunning] = useState<string>();
@@ -367,5 +367,46 @@ export function App() {
           )}
       </main>
     </div>
+  );
+}
+
+function PendingPage({ title }: { title: string }) {
+  return (
+    <main className="inbox">
+      <Link to="/">← Dashboard</Link>
+      <section className="empty">
+        <h1>{title}</h1>
+        <p>
+          This page is being completed as part of the saved-search workflow.
+        </p>
+      </section>
+    </main>
+  );
+}
+export function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/new-parts" element={<Inbox />} />
+        <Route
+          path="/watches"
+          element={<PendingPage title="Saved Searches" />}
+        />
+        <Route
+          path="/watches/new"
+          element={<PendingPage title="New Saved Search" />}
+        />
+        <Route
+          path="/watches/:id"
+          element={<PendingPage title="Watch Detail" />}
+        />
+        <Route
+          path="/watches/:id/edit"
+          element={<PendingPage title="Edit Saved Search" />}
+        />
+        <Route path="/runs" element={<PendingPage title="Run History" />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
