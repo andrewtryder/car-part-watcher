@@ -48,8 +48,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const timeout = setTimeout(() => controller.abort(), 90_000);
   try {
     const res = await fetch(path, { ...init, signal: controller.signal });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Request failed");
+    const data = res.status === 204 ? undefined : await res.json();
+    if (!res.ok) throw new Error(data?.error || "Request failed");
     return data;
   } finally {
     clearTimeout(timeout);
@@ -83,3 +83,61 @@ export const markRead = (id: string) =>
   call<{ ok: true }>(`/api/notifications/${id}/read`, { method: "POST" });
 export const markAllRead = () =>
   call<{ ok: true }>("/api/notifications/mark-all-read", { method: "POST" });
+
+export type SelectOption = { label: string; value: string };
+export type Catalog = {
+  fetchedAt: string;
+  years: SelectOption[];
+  makeModels: SelectOption[];
+  parts: SelectOption[];
+  locations: SelectOption[];
+  sorts: SelectOption[];
+};
+export type Watch = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  year: string;
+  makeModel: string;
+  part: string;
+  location?: string;
+  sort: string;
+  postalCode?: string;
+  refinement?: { label: string };
+  scheduleEnabled: boolean;
+  runFrequency: 1 | 2 | 3;
+  notifyOnInitialRun: boolean;
+};
+export type WatchDraft = Omit<Watch, "id" | "refinement"> & {
+  refinementLabel?: string;
+};
+export type RefinementResult = {
+  status: "ready" | "refinement_required";
+  choices?: Array<{ label: string }>;
+};
+export const catalog = () => call<Catalog>("/api/catalog");
+export const watches = () => call<Watch[]>("/api/watches");
+export const watch = (id: string) => call<Watch>(`/api/watches/${id}`);
+export const resolveWatch = (
+  body: Omit<
+    WatchDraft,
+    | "name"
+    | "enabled"
+    | "scheduleEnabled"
+    | "runFrequency"
+    | "notifyOnInitialRun"
+  >,
+) =>
+  call<RefinementResult>("/api/watches/resolve", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+export const saveWatch = (body: WatchDraft, id?: string) =>
+  call<Watch>(id ? `/api/watches/${id}` : "/api/watches", {
+    method: id ? "PUT" : "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+export const deleteWatch = (id: string) =>
+  call<void>(`/api/watches/${id}`, { method: "DELETE" });
