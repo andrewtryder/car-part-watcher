@@ -6,7 +6,7 @@ function normalized(value: string | undefined): string | undefined {
 }
 
 /** Stable across presentation changes; observed on 48/50 listings in two runs. */
-export type IdentityMethod = "part_guid" | "seller_stock_source" | "fallback_composite" | "seller_stock_part";
+export type IdentityMethod = "seller_stock_part_guid" | "part_guid" | "seller_stock_source" | "fallback_composite" | "seller_stock_part";
 
 export interface ListingIdentity {
   method: IdentityMethod;
@@ -15,12 +15,10 @@ export interface ListingIdentity {
 
 export function listingIdentity(listing: CarPartListing): ListingIdentity | undefined {
   const partGuid = normalized(listing.partGuid);
-  if (partGuid) return { method: "part_guid", canonical: partGuid };
   const stock = normalized(listing.stockNumber);
   const part = normalized(listing.part);
-  const source = normalized(listing.partSourceId);
-  return listing.sellerUserId && stock && part && source
-    ? { method: "seller_stock_source", canonical: `${normalized(listing.sellerUserId)}|${stock}|${source}|${part}` }
+  return listing.sellerUserId && stock && part && partGuid
+    ? { method: "seller_stock_part_guid", canonical: `${normalized(listing.sellerUserId)}|${stock}|${partGuid}|${part}` }
     : undefined;
 }
 
@@ -38,7 +36,7 @@ export function fallbackIdentity(listing: CarPartListing): ListingIdentity | und
 }
 
 export function identityForListing(listing: CarPartListing): ListingIdentity | undefined {
-  return listingIdentity(listing) ?? fallbackIdentity(listing);
+  return listingIdentity(listing);
 }
 
 export async function sourceKey(listing: CarPartListing): Promise<string | undefined> {
