@@ -11,6 +11,7 @@ const listing: CarPartListing = {
   makeModel: "Honda Accord",
   part: "Alternator",
   sellerUserId: "1213",
+  partSourceId: "1213",
   stockNumber: "ABC123",
   recycler: { name: "Example Recycler" },
   price: { display: "$107", amount: 107 },
