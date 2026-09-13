@@ -10,7 +10,11 @@ import {
 } from "../repositories/watch_repository.ts";
 import type { CarPartSearchRequest, SelectOption } from "../types.ts";
 import { executeWatch } from "./reconciliation_service.ts";
-import { listSearchRuns } from "../repositories/search_run_repository.ts";
+import {
+  listRecentSearchRuns,
+  listSearchRuns,
+} from "../repositories/search_run_repository.ts";
+import { listWatchListings } from "../repositories/listing_repository.ts";
 
 const present = (items: SelectOption[], value: string) =>
   items.some((item) => item.label === value || item.value === value);
@@ -37,4 +41,13 @@ export async function resolveWatch(request: CarPartSearchRequest) {
     request,
   );
 }
-export { deleteWatch, executeWatch, getWatch, listSearchRuns, listWatches, saveWatch };
+export {
+  deleteWatch,
+  executeWatch,
+  getWatch,
+  listRecentSearchRuns,
+  listSearchRuns,
+  listWatches,
+  listWatchListings,
+  saveWatch,
+};

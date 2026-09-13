@@ -17,8 +17,10 @@ import {
   deleteWatch,
   executeWatch,
   getWatch,
+  listRecentSearchRuns,
   listSearchRuns,
   listWatches,
+  listWatchListings,
   resolveWatch,
   saveWatch,
   validateWatch,
@@ -175,6 +177,11 @@ Deno.serve(async (req) => {
     if (url.pathname === "/api/watches" && req.method === "GET") {
       return json(await listWatches());
     }
+    if (url.pathname === "/api/runs" && req.method === "GET") {
+      return json(
+        await listRecentSearchRuns(Number(url.searchParams.get("limit") ?? 50)),
+      );
+    }
     if (url.pathname === "/api/watches/resolve" && req.method === "POST") {
       return json(await resolveWatch(request(await req.json())));
     }
@@ -207,6 +214,20 @@ Deno.serve(async (req) => {
       ?.[1];
     if (historyId && req.method === "GET") {
       return json(await listSearchRuns(historyId));
+    }
+    const listingWatchId = url.pathname.match(
+      /^\/api\/watches\/([\w-]+)\/listings$/,
+    )?.[1];
+    if (listingWatchId && req.method === "GET") {
+      if (!await getWatch(listingWatchId)) {
+        return json({ error: "Not found" }, 404);
+      }
+      return json(
+        await listWatchListings(
+          listingWatchId,
+          Number(url.searchParams.get("limit") ?? 50),
+        ),
+      );
     }
     const id = url.pathname.match(/^\/api\/watches\/([\w-]+)$/)?.[1];
     if (id && req.method === "GET") {
