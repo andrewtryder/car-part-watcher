@@ -4,6 +4,7 @@ import type { Sql } from "./listing_repository.ts";
 export interface SearchRun {
   id: string;
   watchId: string;
+  runType?: "manual" | "scheduled";
   status: "running" | "succeeded" | "failed";
   startedAt: string;
   completedAt?: string;
@@ -14,9 +15,10 @@ export interface SearchRun {
   errorCode?: string;
   errorMessage?: string;
 }
-const map = (row: any): SearchRun => ({
+export const mapSearchRun = (row: any): SearchRun => ({
   id: row.id,
   watchId: row.watch_id,
+  runType: row.run_type ?? undefined,
   status: row.status,
   startedAt: row.started_at.toISOString(),
   completedAt: row.completed_at?.toISOString(),
@@ -71,7 +73,7 @@ export async function failSearchRun(
 }
 export async function listSearchRuns(watchId: string) {
   return (await getDatabase()`select * from search_runs where watch_id=${watchId} order by started_at desc limit 25`)
-    .map(map);
+    .map(mapSearchRun);
 }
 export async function listRecentSearchRuns(limit = 50) {
   const rows =
@@ -79,7 +81,7 @@ export async function listRecentSearchRuns(limit = 50) {
       Math.min(Math.max(limit, 1), 100)
     }`;
   return rows.map((row: any) => ({
-    ...map(row),
+    ...mapSearchRun(row),
     watchName: row.watch_name,
     runType: row.run_type,
   }));

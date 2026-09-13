@@ -12,6 +12,7 @@ import { type Dashboard, dashboard, refreshCatalog, runWatch } from "./api.ts";
 import { Inbox } from "./Inbox.tsx";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { WatchForm, WatchList } from "./Watches.tsx";
+import { WatchDetail } from "./WatchDetail.tsx";
 
 const frequency = (value: number) =>
   value === 1
@@ -392,10 +393,7 @@ export function App() {
         <Route path="/new-parts" element={<Inbox />} />
         <Route path="/watches" element={<WatchList />} />
         <Route path="/watches/new" element={<WatchForm />} />
-        <Route
-          path="/watches/:id"
-          element={<PendingPage title="Watch Detail" />}
-        />
+        <Route path="/watches/:id" element={<WatchDetail />} />
         <Route path="/watches/:id/edit" element={<WatchForm />} />
         <Route path="/runs" element={<PendingPage title="Run History" />} />
       </Routes>
