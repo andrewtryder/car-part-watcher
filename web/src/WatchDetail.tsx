@@ -115,6 +115,7 @@ function Listings({
                   <th>Details</th>
                   <th>Price</th>
                   <th>Recycler</th>
+                  <th>Actions</th>
                   <th>First Seen</th>
                   <th>Last Seen</th>
                 </tr>
@@ -127,8 +128,10 @@ function Listings({
                         .join(" ") || "Part"}
                     </td>
                     <td>
+                      {item.imageUrl ? <a href={item.photoUrl || item.imageUrl} target="_blank" rel="noopener noreferrer"><img src={item.imageUrl} alt="Part thumbnail" width="64" height="48" /></a> : null}
                       {[
                         item.description,
+                        item.damageCode && `Damage: ${item.damageCode}`,
                         item.grade && `Grade: ${item.grade}`,
                         item.stockNumber && `Stock #${item.stockNumber}`,
                       ].filter(Boolean).map((text) => (
@@ -141,6 +144,7 @@ function Listings({
                         Boolean,
                       ).join(" · ") || "—"}
                     </td>
+                    <td>{item.photoUrl ? <a href={item.photoUrl} target="_blank" rel="noopener noreferrer">Photos</a> : null}{item.photoUrl && item.quoteUrl ? " · " : null}{item.quoteUrl ? <a href={item.quoteUrl} target="_blank" rel="noopener noreferrer">Request Quote</a> : null}{!item.photoUrl && !item.quoteUrl ? "—" : null}</td>
                     <td>{formatDate(item.firstSeenAt, timezone)}</td>
                     <td>{formatDate(item.lastSeenAt, timezone)}</td>
                   </tr>

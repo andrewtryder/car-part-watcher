@@ -11,6 +11,8 @@ const listing: CarPartListing = {
   makeModel: "Honda Accord",
   part: "Alternator",
   sellerUserId: "1213",
+  partSourceId: "1213",
+  partGuid: "part-guid-a",
   stockNumber: "ABC123",
   recycler: { name: "Example Recycler" },
   price: { display: "$107", amount: 107 },
@@ -39,7 +41,8 @@ Deno.test("different seller and stock combinations produce different source keys
   );
 });
 
-Deno.test("fallback is used only when the preferred seller key is unavailable", () => {
+Deno.test("v2 skips rows without a durable source identity", () => {
   const withoutSeller = { ...listing, sellerUserId: undefined };
-  assertEquals(identityForListing(withoutSeller), fallbackIdentity(withoutSeller));
+  assertEquals(identityForListing(withoutSeller), undefined);
+  assertEquals(fallbackIdentity(withoutSeller)?.method, "fallback_composite");
 });

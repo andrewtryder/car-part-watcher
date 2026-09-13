@@ -2,6 +2,7 @@ import { assertEquals } from "jsr:@std/assert@1.0.19";
 import { parseSearchOptions } from "../src/parsers/search_options.ts";
 import { parseRefinementChoices } from "../src/parsers/refinement.ts";
 import { hasNextResultsPage, parseResults } from "../src/parsers/results.ts";
+import { currentResultsFixture } from "./fixtures/car_part_current_results.ts";
 
 Deno.test("parses current option labels separately from values", () => {
   const result = parseSearchOptions(
@@ -32,4 +33,21 @@ Deno.test("parses a sanitized result row and next-page link", () => {
   assertEquals(listing.sellerUserId, "1213");
   assertEquals(listing.quoteUrl?.includes("secret"), false);
   assertEquals(hasNextResultsPage(html), true);
+});
+
+Deno.test("parses the current semantic Car-Part result layout", () => {
+  const [priced, call] = parseResults(currentResultsFixture);
+  assertEquals(priced.stockNumber, "799239");
+  assertEquals(priced.damageCode, "6S55D4");
+  assertEquals(priced.grade, "C9cc");
+  assertEquals(priced.price, { display: "$380", amount: 380, currency: "USD" });
+  assertEquals(priced.recycler, { name: "Example Recycler", location: "USA-NH(Concord)", phone: "800-555-1212" });
+  assertEquals(priced.imageUrl, "https://wsimgoh.car-part.com/1004/a_thumb.jpg");
+  assertEquals(priced.photoUrl?.includes("partGUID=part-1"), true);
+  assertEquals(priced.quoteUrl?.includes("secret"), false);
+  assertEquals(priced.quoteUrl?.includes("sessionID"), false);
+  assertEquals(call.stockNumber, "FKC062");
+  assertEquals(call.price, { display: "Call", amount: undefined, currency: undefined });
+  assertEquals(call.imageUrl, undefined);
+  assertEquals(call.photoUrl, undefined);
 });

@@ -9,6 +9,7 @@ import { hasNextResultsPage, nextResultsPageHref, parseResults } from "../parser
 import { parseSearchOptions } from "../parsers/search_options.ts";
 import type {
   BrowserRuntimeInfo,
+  CarPartListing,
   CarPartSearchRequest,
   SearchOptions,
   SearchTimings,
@@ -254,6 +255,7 @@ export async function runCarPartSearch(
   provider: BrowserProvider,
   request = representativeSearch,
   onStage: (stage: string) => void = () => {},
+  runOptions: { onPage?: (page: { number: number; listings: CarPartListing[]; url: string }) => void } = {},
 ): Promise<SpikeResult> {
   const startedAt = performance.now();
   let stage = "session_create";
@@ -387,6 +389,7 @@ export async function runCarPartSearch(
     recordStage("results parsed");
     if (listings.length === 50) recordStage("50 listings parsed");
     let pagesFetched = 1;
+    runOptions.onPage?.({ number: pagesFetched, listings: [...listings], url: page.url() });
     const visited = new Set([page.url()]);
     while (true) {
       const currentPage = Number(new URL(page.url()).searchParams.get("userPage") ?? "1") || 1;
@@ -412,6 +415,7 @@ export async function runCarPartSearch(
       }
       listings.push(...nextListings);
       pagesFetched++;
+      runOptions.onPage?.({ number: pagesFetched, listings: nextListings, url: page.url() });
     }
     const hasNextPage = hasNextResultsPage(html);
     timings.totalMs = Math.round(performance.now() - startedAt);

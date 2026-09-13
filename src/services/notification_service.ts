@@ -23,6 +23,10 @@ export interface NotificationEventV1 {
     stockNumber?: string;
     description?: string;
     grade?: string;
+    damageCode?: string;
+    imageUrl?: string;
+    photoUrl?: string;
+    quoteUrl?: string;
   };
   schedule: {
     slot: string;
@@ -64,6 +68,10 @@ export function buildNotificationEventV1(params: {
       stockNumber: rawListing.stockNumber,
       description: rawListing.description,
       grade: rawListing.grade,
+      damageCode: rawListing.damageCode,
+      imageUrl: rawListing.imageUrl,
+      photoUrl: rawListing.photoUrl,
+      quoteUrl: rawListing.quoteUrl,
     },
     schedule: {
       slot: params.scheduleSlot ?? "manual",
@@ -153,6 +161,10 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
       stockNumber: typeof listing.stockNumber === "string" ? listing.stockNumber : undefined,
       description: typeof listing.description === "string" ? listing.description : undefined,
       grade: typeof listing.grade === "string" ? listing.grade : undefined,
+      damageCode: typeof listing.damageCode === "string" ? listing.damageCode : undefined,
+      imageUrl: typeof listing.imageUrl === "string" ? listing.imageUrl : undefined,
+      photoUrl: typeof listing.photoUrl === "string" ? listing.photoUrl : undefined,
+      quoteUrl: typeof listing.quoteUrl === "string" ? listing.quoteUrl : undefined,
     },
     schedule: {
       slot: schedule.slot,
