@@ -9,6 +9,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { type Dashboard, dashboard, refreshCatalog, runWatch } from "./api.ts";
+import { Inbox } from "./Inbox.tsx";
 
 const frequency = (value: number) =>
   value === 1
@@ -62,6 +63,7 @@ function Stat(
   );
 }
 export function App() {
+  if (window.location.pathname === "/new-parts") return <Inbox />;
   const [data, setData] = useState<Dashboard>();
   const [error, setError] = useState<string>();
   const [running, setRunning] = useState<string>();
