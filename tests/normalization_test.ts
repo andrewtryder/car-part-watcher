@@ -5,6 +5,7 @@ import type { CarPartListing } from "../src/types.ts";
 
 const base: CarPartListing = {
   year: "2015", makeModel: "Honda Accord", part: "Alternator", sellerUserId: "77",
+  partGuid: "part-guid-a",
   stockNumber: " A-1 ", recycler: { name: "Example Recycler" },
   price: { display: "$100", amount: 100, currency: "USD" }, description: "Original", grade: "A",
 };
@@ -16,9 +17,9 @@ Deno.test("normalization retains identity through mutable changes and reports th
   assertEquals(mutableChanges(first!, revised!), ["description", "grade", "priceAmount", "priceDisplay"]);
 });
 
-Deno.test("normalization uses fallback when seller identity is missing", async () => {
+Deno.test("normalization skips a listing missing a strong identity component", async () => {
   const listing = await normalizeListing({ ...base, sellerUserId: undefined });
-  assertEquals(listing?.identityMethod, "fallback_composite");
+  assertEquals(listing, undefined);
 });
 
 Deno.test("duplicate result rows are deduplicated and visibly conflicting rows fail", async () => {

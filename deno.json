@@ -8,6 +8,7 @@
     "browserless:spike": "deno run --allow-env --allow-net --allow-write --allow-sys src/browserless_spike.ts",
     "browser-matrix": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_matrix.ts",
     "identity:spike": "deno run --unsafe-proto --allow-env --allow-net --allow-read --allow-sys src/listing_identity_spike.ts",
+    "identity-v2-gate": "deno run --unsafe-proto --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys scripts/identity_v2_gate.ts",
     "serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys main.ts",
     "worker:serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_worker.ts",
     "migrate": "deno run --allow-env --allow-net --allow-read scripts/migrate.ts",
