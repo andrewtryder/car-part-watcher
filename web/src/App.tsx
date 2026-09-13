@@ -11,6 +11,7 @@ import {
 import { type Dashboard, dashboard, refreshCatalog, runWatch } from "./api.ts";
 import { Inbox } from "./Inbox.tsx";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import { WatchForm, WatchList } from "./Watches.tsx";
 
 const frequency = (value: number) =>
   value === 1
@@ -389,22 +390,13 @@ export function App() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/new-parts" element={<Inbox />} />
-        <Route
-          path="/watches"
-          element={<PendingPage title="Saved Searches" />}
-        />
-        <Route
-          path="/watches/new"
-          element={<PendingPage title="New Saved Search" />}
-        />
+        <Route path="/watches" element={<WatchList />} />
+        <Route path="/watches/new" element={<WatchForm />} />
         <Route
           path="/watches/:id"
           element={<PendingPage title="Watch Detail" />}
         />
-        <Route
-          path="/watches/:id/edit"
-          element={<PendingPage title="Edit Saved Search" />}
-        />
+        <Route path="/watches/:id/edit" element={<WatchForm />} />
         <Route path="/runs" element={<PendingPage title="Run History" />} />
       </Routes>
     </BrowserRouter>
