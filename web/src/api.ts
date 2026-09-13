@@ -7,6 +7,8 @@ export type Run = {
   listingCount?: number;
   newListingCount?: number;
   changedCount?: number;
+  pagesFetched?: number;
+  errorCode?: string;
   errorMessage?: string;
 };
 export type Dashboard = {
@@ -141,3 +143,23 @@ export const saveWatch = (body: WatchDraft, id?: string) =>
   });
 export const deleteWatch = (id: string) =>
   call<void>(`/api/watches/${id}`, { method: "DELETE" });
+
+export type WatchListing = {
+  id: string;
+  year?: string;
+  makeModel?: string;
+  part?: string;
+  description?: string;
+  grade?: string;
+  stockNumber?: string;
+  priceDisplay?: string;
+  recyclerName?: string;
+  recyclerLocation?: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+export type SystemStatus = { timezone: string };
+export const watchListings = (id: string) =>
+  call<WatchListing[]>(`/api/watches/${id}/listings`);
+export const watchRuns = (id: string) => call<Run[]>(`/api/watches/${id}/runs`);
+export const system = () => call<SystemStatus>("/api/system");
