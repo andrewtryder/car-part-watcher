@@ -30,3 +30,12 @@ the same 41 listings with zero new listings and still zero events. Its
 watch-filtered New Parts view displayed “No unread parts.” The next natural
 acceptance event is a genuinely new matching listing, which should create one
 unread `new_listing` event and then be processed by `LoggingNotifier`.
+
+## Corrected-history cutover — 2026-09-13
+
+The corrected parser/identity deployment intentionally reset derived result
+history while preserving watches and catalogs. The CR-V fresh baseline had 272
+new-for-watch relationships and zero events because `notify_on_initial_run`
+remained false. Its subsequent 272-listing repeat had zero new relationships
+and zero events. `LoggingNotifier` remains the delivery implementation; no
+synthetic production event was created merely to exercise delivery metadata.
