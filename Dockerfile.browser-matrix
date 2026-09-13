@@ -14,6 +14,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY . .
 RUN chmod +x scripts/with-xvfb.sh \
-  && deno cache --lock=deno.lock src/browser_matrix.ts
+  && deno cache --lock=deno.lock src/browser_worker.ts
 
-ENTRYPOINT ["/app/scripts/with-xvfb.sh", "deno", "task", "browser-matrix", "--", "chrome-headed"]
+EXPOSE 8000
+ENTRYPOINT ["/app/scripts/with-xvfb.sh", "deno", "task", "worker:serve"]

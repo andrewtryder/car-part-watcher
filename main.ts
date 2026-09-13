@@ -1,43 +1,69 @@
-import {
-  LocalBrowserProvider,
-  runCarPartSearch,
-} from "./src/browser/car_part_browser.ts";
-import { provisionLightpandaForCurrentRuntime } from "./src/browser/lightpanda_browser_provider.ts";
-import { BrowserlessBrowserProvider } from "./src/browser/browserless_browser_provider.ts";
-import { SpikeError } from "./src/types.ts";
+import { CarPartRemoteSource, SourceError } from "./src/parts_source.ts";
+import { WatchStore } from "./src/watch_store.ts";
+import type { CarPartSearchRequest } from "./src/types.ts";
 
-const endpoint = "/_dev/search-spike";
+const kv = await Deno.openKv();
+const store = new WatchStore(kv);
+const manualToken = Deno.env.get("MANUAL_RUN_TOKEN");
+
+function json(value: unknown, status = 200) {
+  return Response.json(value, { status });
+}
+
+function isRequest(value: unknown): value is CarPartSearchRequest {
+  if (!value || typeof value !== "object") return false;
+  const body = value as Record<string, unknown>;
+  return ["year", "makeModel", "part", "sort"].every((key) =>
+    typeof body[key] === "string" && body[key].length > 0
+  ) && (body.location === undefined || typeof body.location === "string") &&
+    (body.postalCode === undefined || typeof body.postalCode === "string") &&
+    (body.refinement === undefined ||
+      (typeof body.refinement === "object" && body.refinement !== null &&
+        typeof (body.refinement as Record<string, unknown>).label ===
+          "string"));
+}
+
+function isAuthorized(request: Request) {
+  return Boolean(manualToken) &&
+    request.headers.get("authorization") === `Bearer ${manualToken}`;
+}
 
 Deno.serve(async (request) => {
   const url = new URL(request.url);
-  if (url.pathname !== endpoint) {
+  if (url.pathname === "/health" && request.method === "GET") {
+    return json({ status: "ok" });
+  }
+  if (!url.pathname.startsWith("/_dev/")) {
     return new Response("Not found", { status: 404 });
   }
-  if (request.method !== "POST") {
-    return new Response("Method not allowed", {
-      status: 405,
-      headers: { Allow: "POST" },
-    });
+  if (!isAuthorized(request)) return new Response("Not found", { status: 404 });
+
+  if (url.pathname === "/_dev/watches" && request.method === "POST") {
+    const body = await request.json().catch(() => undefined);
+    if (!isRequest(body)) {
+      return json({
+        error: { code: "INVALID_REQUEST", message: "Invalid watch request" },
+      }, 400);
+    }
+    return json(await store.createWatch(body), 201);
   }
-  const token = Deno.env.get("SEARCH_SPIKE_TOKEN");
-  if (!token || request.headers.get("authorization") !== `Bearer ${token}`) {
-    return new Response("Not found", { status: 404 });
+
+  const match = url.pathname.match(/^\/_dev\/watches\/([^/]+)\/run$/);
+  if (match && request.method === "POST") {
+    const watch = await store.getWatch(match[1]);
+    if (!watch) {
+      return json({
+        error: { code: "WATCH_NOT_FOUND", message: "Watch not found" },
+      }, 404);
+    }
+    try {
+      return json(await store.runWatch(watch, new CarPartRemoteSource()));
+    } catch (error) {
+      const safe = error instanceof SourceError
+        ? { code: error.code, message: error.message }
+        : { code: "SEARCH_FAILED", message: "Watch search failed" };
+      return json({ error: safe }, 502);
+    }
   }
-  if (url.searchParams.get("runtime") === "info") {
-    return Response.json({ os: Deno.build.os, arch: Deno.build.arch });
-  }
-  try {
-    const runtime = url.searchParams.get("runtime");
-    const provider = runtime === "lightpanda"
-      ? await provisionLightpandaForCurrentRuntime()
-      : runtime === "browserless"
-      ? new BrowserlessBrowserProvider()
-      : new LocalBrowserProvider();
-    return Response.json(await runCarPartSearch(provider));
-  } catch (error) {
-    const body = error instanceof SpikeError ? error.toJSON() : {
-      error: { code: "UNEXPECTED_PAGE", message: "Unexpected spike failure" },
-    };
-    return Response.json(body, { status: 502 });
-  }
+  return new Response("Not found", { status: 404 });
 });

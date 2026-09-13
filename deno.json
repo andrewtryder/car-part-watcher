@@ -1,13 +1,16 @@
 {
   "tasks": {
-    "check": "deno check main.ts src/spike.ts",
+    "check": "deno check main.ts src/spike.ts src/browser_worker.ts",
     "test": "deno test",
     "search:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/spike.ts",
     "lightpanda:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/lightpanda_spike.ts",
     "browserless:spike": "deno run --allow-env --allow-net --allow-sys src/browserless_spike.ts",
     "browser-matrix": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_matrix.ts",
-    "serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys main.ts"
+    "identity:spike": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/listing_identity_spike.ts",
+    "serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys main.ts",
+    "worker:serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_worker.ts"
   },
+  "unstable": ["kv"],
   "deploy": {
     "org": "andrewtryder",
     "app": "car-part-watcher"

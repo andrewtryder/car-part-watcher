@@ -1,5 +1,33 @@
 # Car-Part browser-search spike
 
+## Current architecture
+
+The completed runtime decision is now implemented as a private browser-worker
+boundary. The Deno Deploy application owns API/persistence and invokes the
+worker through authenticated HTTPS JSON; it does not launch or control a
+browser. The worker owns one isolated, normal headed Chrome session per search.
+
+```text
+Deno Deploy
+  ├── application/API
+  └── Deno KV persistence
+          |
+          | HTTPS JSON
+          v
+browser worker
+  ├── Linux + Xvfb
+  ├── Google Chrome (headless: false)
+  └── Playwright
+          |
+          v
+     Car-Part.com
+```
+
+The active worker and persistence details are in
+[`browser-worker.md`](browser-worker.md) and [`data-model.md`](data-model.md).
+Browser-engine experimentation is complete; the historical experiments below are
+retained as evidence, not as active implementation options.
+
 ## Outcome
 
 **Local execution succeeded.** The Deno/Playwright spike used a single, headed,

@@ -78,6 +78,7 @@ export class ChromeBrowserProvider implements BrowserProvider {
         headless: config.headless,
         channel: config.channel,
         executablePath: headlessShellPath,
+        timeout: 20_000,
       });
     } catch (cause) {
       throw new SpikeError(
@@ -89,6 +90,8 @@ export class ChromeBrowserProvider implements BrowserProvider {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 900 },
     });
+    context.setDefaultTimeout(20_000);
+    context.setDefaultNavigationTimeout(25_000);
     return {
       context,
       timings: { sessionCreateMs: Math.round(performance.now() - startedAt) },

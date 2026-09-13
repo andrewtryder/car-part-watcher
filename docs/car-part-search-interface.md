@@ -194,4 +194,5 @@ while a desired page link exists:
 - **Additional pages:** full GETs with `userPage=N` and repeated derived state; 50 rows per observed page.
 - **Stable listing ID:** none universal was exposed. Candidate composite identity is `selleruserid + stockNum`, augmented by `partGUID`/`partsourceid` where available.
 - **Minimum persisted input:** human-readable `{year, makeModel, part, location?, sort?, postalCode?}`; resolve live option values and derived IDs at execution time.
+
 - **Simplest strategy:** drive the same browser forms in one normal, stateful browser session, parse each supplied HTML form/link, and preserve all server-generated fields verbatim.
