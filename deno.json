@@ -11,7 +11,7 @@
     "worker:serve": "deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-sys src/browser_worker.ts",
     "migrate": "deno run --allow-env --allow-net --allow-read scripts/migrate.ts"
   },
-  "unstable": ["kv"],
+  "unstable": ["kv", "cron"],
   "deploy": {
     "org": "andrewtryder",
     "app": "car-part-watcher",

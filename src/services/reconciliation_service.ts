@@ -3,10 +3,12 @@ import { BrowserlessBrowserProvider } from "../browser/browserless_browser_provi
 import { getDatabase } from "../db/database.ts";
 import { normalizeListing, type NormalizedListing } from "../listing_normalizer.ts";
 import { associateListing, upsertListing } from "../repositories/listing_repository.ts";
-import { completeSearchRun, createSearchRun, failSearchRun } from "../repositories/search_run_repository.ts";
+import { completeSearchRun, createSearchRun, failSearchRun, hasPreviousSuccessfulRun } from "../repositories/search_run_repository.ts";
 import { getWatch, type Watch } from "../repositories/watch_repository.ts";
 import { SpikeError } from "../types.ts";
 import { deduplicateNormalized, ListingIdentityCollisionError } from "../reconciliation.ts";
+import { createNewListingEvent } from "../repositories/notification_repository.ts";
+import { processNotificationOutbox } from "./notification_service.ts";
 
 export interface WatchRunSummary {
   runId: string; status: "succeeded"; pagesFetched: number; listingCount: number;
@@ -21,11 +23,13 @@ function safeError(error: unknown) {
   return { code: "SEARCH_FAILED", message: error instanceof Error ? error.message.slice(0, 500) : "Search failed" };
 }
 
-export async function executeWatch(watchId: string): Promise<WatchRunSummary> {
+export async function executeWatch(watchId: string, options: { runType?: "manual" | "scheduled"; scheduledKey?: string } = {}): Promise<WatchRunSummary | undefined> {
   const watch = await getWatch(watchId);
   if (!watch) throw new Error("Watch not found");
-  if (!watch.enabled) throw new Error("Watch is disabled");
-  const run = await createSearchRun(watch.id);
+  if (!watch.enabled && options.runType === "scheduled") return undefined;
+  const hadSuccessfulRun = await hasPreviousSuccessfulRun(watch.id);
+  const run = await createSearchRun(watch.id, options);
+  if (!run) return undefined;
   const began = performance.now();
   try {
     const result = await runCarPartSearch(new BrowserlessBrowserProvider(), watch);
@@ -34,13 +38,13 @@ export async function executeWatch(watchId: string): Promise<WatchRunSummary> {
     if (!unique.size) throw new Error("No listings had a durable source identity");
     const observedAt = new Date();
     let newListingCount = 0; let changedCount = 0;
-    const newListings: NormalizedListing[] = [];
+    const newListings: NormalizedListing[] = []; const newEventInputs: { listingId: string; listing: NormalizedListing }[] = [];
     await getDatabase().begin(async (sql) => {
       for (const listing of unique.values()) {
         const stored = await upsertListing(sql, listing, observedAt);
         if (stored.changedFields.length) changedCount++;
         if (await associateListing(sql, watch.id, stored.id, run.id, observedAt)) {
-          newListingCount++; newListings.push(listing);
+          newListingCount++; newListings.push(listing); newEventInputs.push({ listingId: stored.id, listing });
         }
       }
       await completeSearchRun(sql, run.id, {
@@ -48,6 +52,12 @@ export async function executeWatch(watchId: string): Promise<WatchRunSummary> {
         pagesFetched: result.results.pagesFetched ?? 1, completedAt: new Date(),
       });
     });
+    if (hadSuccessfulRun || watch.notifyOnInitialRun) try {
+      await getDatabase().begin(async (sql) => {
+        for (const { listingId, listing } of newEventInputs) await createNewListingEvent(sql, { watchId: watch.id, searchRunId: run.id, listingId, payload: { watchName: watch.name, listingId, year: listing.year, makeModel: listing.makeModel, part: listing.part, description: listing.description, grade: listing.grade, stockNumber: listing.stockNumber, priceDisplay: listing.priceDisplay, recyclerName: listing.recyclerName, recyclerLocation: listing.recyclerLocation } });
+      });
+      await processNotificationOutbox();
+    } catch (error) { console.error("notification outbox generation failed", error instanceof Error ? error.message : "unknown"); }
     return { runId: run.id, status: "succeeded", pagesFetched: result.results.pagesFetched ?? 1,
       listingCount: unique.size, newListingCount, changedCount,
       durationMs: Math.round(performance.now() - began), newListings };

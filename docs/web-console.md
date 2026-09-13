@@ -11,4 +11,8 @@ Manual watch execution is available from `POST /api/watches/:id/run`; recent
 run history is available from `GET /api/watches/:id/runs`. These are temporary
 administrative actions while console authentication remains deferred.
 
+Scheduling and notification operational APIs are also intentionally open for
+this phase: `GET /api/system`, `GET /api/notifications`, and a slot-dispatch
+endpoint. They must receive access control before the console is shared.
+
 SECURITY TODO: Administrative console is currently unauthenticated.

@@ -1,4 +1,7 @@
 import { getCatalog, refreshCatalog } from "./src/services/catalog_service.ts";
+import "./src/cron.ts";
+import { listNotificationEvents, notificationCounts, retryNotificationEvent } from "./src/repositories/notification_repository.ts";
+import { appTimezone, scheduledWatchDispatcher, type ScheduleSlot } from "./src/services/scheduling_service.ts";
 import {
   deleteWatch,
   executeWatch,
@@ -60,6 +63,12 @@ Deno.serve(async (req) => {
         ),
       });
     }
+    if (url.pathname === "/api/system" && req.method === "GET") return json({ timezone: appTimezone(), notifications: await notificationCounts() });
+    if (url.pathname === "/api/notifications" && req.method === "GET") return json(await listNotificationEvents());
+    const retryEventId = url.pathname.match(/^\/api\/notifications\/([\w-]+)\/retry$/)?.[1];
+    if (retryEventId && req.method === "POST") { await retryNotificationEvent(retryEventId); return json({ ok: true }); }
+    const scheduleSlot = url.pathname.match(/^\/api\/schedule\/(morning|afternoon|evening)\/run$/)?.[1] as ScheduleSlot | undefined;
+    if (scheduleSlot && req.method === "POST") return json(await scheduledWatchDispatcher(scheduleSlot));
     if (url.pathname === "/api/watches" && req.method === "GET") {
       return json(await listWatches());
     }
@@ -72,6 +81,9 @@ Deno.serve(async (req) => {
         ...request(b),
         name: b.name ?? "",
         enabled: b.enabled !== false,
+        scheduleEnabled: b.scheduleEnabled === true,
+        runFrequency: [1, 2, 3].includes(Number(b.runFrequency)) ? Number(b.runFrequency) as 1 | 2 | 3 : 1,
+        notifyOnInitialRun: b.notifyOnInitialRun === true,
       };
       await validateWatch(draft);
       if (b.resolveStatus === "refinement_required" && !draft.refinement) {
@@ -91,6 +103,7 @@ Deno.serve(async (req) => {
     const runId = url.pathname.match(/^\/api\/watches\/([\w-]+)\/run$/)?.[1];
     if (runId && req.method === "POST") {
       const run = await executeWatch(runId);
+      if (!run) return json({ skipped: true });
       return json({ ...run, newListings: run.newListings.map((listing) => ({
         year: listing.year, makeModel: listing.makeModel, part: listing.part,
         description: listing.description, grade: listing.grade, stockNumber: listing.stockNumber,
@@ -112,6 +125,9 @@ Deno.serve(async (req) => {
         ...request(b),
         name: b.name ?? "",
         enabled: b.enabled !== false,
+        scheduleEnabled: b.scheduleEnabled === true,
+        runFrequency: [1, 2, 3].includes(Number(b.runFrequency)) ? Number(b.runFrequency) as 1 | 2 | 3 : 1,
+        notifyOnInitialRun: b.notifyOnInitialRun === true,
       };
       await validateWatch(draft);
       if (

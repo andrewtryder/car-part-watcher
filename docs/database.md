@@ -46,3 +46,8 @@ listings across 4 pages and created 177 watch/listing relationships in 24.2 s;
 run `7c88e545-54f7-40ee-9728-5a8d524cfd11` found the same 177 listings across
 4 pages in 23.7 s with zero new relationships and 21 mutable updates. The
 temporary watch was deleted afterwards; global listing history was retained.
+
+`003_scheduling_notification_outbox.sql` adds watch scheduling/initial-notify
+policy, scheduled run keys, and the `notification_events` durable outbox.
+Outbox events are unique per search run/listing/event type and are indexed for
+safe pending-event claiming.
