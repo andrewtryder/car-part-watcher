@@ -15,7 +15,7 @@
   "deploy": {
     "org": "andrewtryder",
     "app": "car-part-watcher",
-    "predeploy": "./scripts/predeploy.sh",
+    "predeploy": "deno task migrate",
     "runtime": { "type": "dynamic", "entrypoint": "main.ts" }
   }
 }
