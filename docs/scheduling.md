@@ -19,3 +19,10 @@ hourly watch dispatcher plus the 15-minute notification-outbox drain. The real
 `Accord Alternator` watch is enabled at twice daily in
 `America/New_York`, leaving the next natural scheduled execution pending. No
 schedule window was forced during verification.
+
+The intentionally active real-use watch `CRV Front Bumper`
+(`14337db6-b793-4228-804e-dacd52baeb5d`) was added through the production React
+console on 2026-09-13. It is enabled at three times daily in
+`America/New_York`, corresponding to the 08:00, 14:00, and 20:00 local windows.
+No scheduled window was forced; scheduled-run verification remains pending its
+next natural execution.

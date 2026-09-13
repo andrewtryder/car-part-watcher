@@ -21,3 +21,12 @@ baseline suppression. The immediate repeat had zero new listings and still no
 events. Read-state mutation was not exercised in production because no natural
 new inventory appeared; automated coverage remains the verification for that
 path.
+
+The real-use `CRV Front Bumper` watch
+(`14337db6-b793-4228-804e-dacd52baeb5d`) also confirmed this behavior on
+2026-09-13. Its baseline reconciled 41 listings as new-for-watch with zero
+events, because `notify_on_initial_run` is false. The immediate repeat returned
+the same 41 listings with zero new listings and still zero events. Its
+watch-filtered New Parts view displayed “No unread parts.” The next natural
+acceptance event is a genuinely new matching listing, which should create one
+unread `new_listing` event and then be processed by `LoggingNotifier`.
