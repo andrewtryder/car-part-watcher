@@ -80,6 +80,10 @@ export type Notification = {
       stockNumber?: string;
       description?: string;
       grade?: string;
+      damageCode?: string;
+      imageUrl?: string;
+      photoUrl?: string;
+      quoteUrl?: string;
     };
   };
 };
@@ -166,11 +170,16 @@ export type WatchListing = {
   makeModel?: string;
   part?: string;
   description?: string;
+  damageCode?: string;
   grade?: string;
   stockNumber?: string;
   priceDisplay?: string;
   recyclerName?: string;
   recyclerLocation?: string;
+  recyclerPhone?: string;
+  imageUrl?: string;
+  photoUrl?: string;
+  quoteUrl?: string;
   firstSeenAt: string;
   lastSeenAt: string;
 };
