@@ -10,3 +10,24 @@ may set `DATABASE_URL` or use a Deploy tunnel. `source_catalogs` stores source
 metadata as JSONB; `watches` stores durable, human-readable search intent and
 refinement labels. Session IDs, opaque interchange values, cookies, Browserless
 state, and selector internals are intentionally never persisted.
+
+## Deployment verification
+
+Production revision `aherdknfyxzr` routed on 2026-09-13 with the
+source-controlled pre-deploy migration configuration. Build logs showed
+`Running pre-deploy command "deno task migrate"` and successful completion for
+both the Production and main-branch partitions; the rerun reported the existing
+`schema_migrations` relation and completed successfully. The subsequent catalog
+refresh succeeded, demonstrating that `schema_migrations`, `source_catalogs`,
+and `watches` are available to the application. It stored a catalog with 128
+years, 1,670 make/models, 707 parts, 96 locations, and 5 sorts. A representative
+watch was created with the human-readable `2.4L (Mitsubishi manufacturer), AT
+(CVT)` refinement label, edited, disabled, enabled, and deleted. A second
+temporary watch and the cached catalog remained available after production
+revision `n0x52twapy2z` routed, confirming PostgreSQL persistence across a
+revision change.
+
+The managed-database CLI query endpoint returned an upstream
+`databases.executeQuery` procedure-not-found error during this verification, so
+schema verification used the application’s normal persisted catalog and watch
+operations instead. No diagnostic endpoint was added.
