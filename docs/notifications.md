@@ -32,6 +32,12 @@ delivered crash window, mitigated by a deterministic Message-ID.
 The test command sends directly and never creates a notification event, changes
 listing state, or invokes a Car-Part search.
 
+`email:test` is dry-run by default. A send requires all of `--send`, `--confirm
+SEND_TEST_EMAIL`, and `--allow-production` (plus an optional traceable
+`--test-id`). To stop normal delivery cleanly, disable the singleton DB setting.
+Removing the Gmail app password is an emergency stop but leaves pending events
+to fail and retry until credentials/settings are restored.
+
 ## Production verification — 2026-09-13
 
 The first successful run of the real `Accord Alternator` watch had 177
