@@ -1,5 +1,6 @@
 import { getCatalog, refreshCatalog } from "./src/services/catalog_service.ts";
 import "./src/cron.ts";
+import { withConsoleAuthentication } from "./src/console_auth.ts";
 import {
   listInboxNotifications,
   markAllNotificationsRead,
@@ -7,11 +8,7 @@ import {
   notificationCounts,
   retryNotificationEvent,
 } from "./src/repositories/notification_repository.ts";
-import {
-  appTimezone,
-  scheduledWatchDispatcher,
-  type ScheduleSlot,
-} from "./src/services/scheduling_service.ts";
+import { appTimezone } from "./src/services/scheduling_service.ts";
 import { getDashboard } from "./src/services/dashboard_service.ts";
 import {
   deleteWatch,
@@ -103,7 +100,7 @@ async function consoleAsset(pathname: string) {
   }
 }
 
-Deno.serve(async (req) => {
+export async function handleConsoleRequest(req: Request) {
   const url = new URL(req.url);
   try {
     if (url.pathname === "/api/dashboard" && req.method === "GET") {
@@ -167,12 +164,6 @@ Deno.serve(async (req) => {
     if (retryEventId && req.method === "POST") {
       await retryNotificationEvent(retryEventId);
       return json({ ok: true });
-    }
-    const scheduleSlot = url.pathname.match(
-      /^\/api\/schedule\/(morning|afternoon|evening)\/run$/,
-    )?.[1] as ScheduleSlot | undefined;
-    if (scheduleSlot && req.method === "POST") {
-      return json(await scheduledWatchDispatcher(scheduleSlot));
     }
     if (url.pathname === "/api/watches" && req.method === "GET") {
       return json(await listWatches());
@@ -255,4 +246,9 @@ Deno.serve(async (req) => {
       error: error instanceof Error ? error.message : "Request failed",
     }, 400);
   }
-});
+}
+
+Deno.serve((req) => withConsoleAuthentication(
+  req,
+  () => handleConsoleRequest(req),
+));
