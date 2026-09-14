@@ -12,6 +12,23 @@ summary and marks an event delivered. The processor claims a small batch with
 is invoked after successful runs plus by a 15-minute Deno Cron drain. No email,
 SMS, webhook, or third-party provider is configured.
 
+## Gmail SMTP delivery
+
+Gmail delivery extends the same durable outbox; it does not change
+reconciliation. The singleton `email_notification_settings` row holds the
+enabled flag, recipient, sender display name, subject prefix, and persisted
+application URL. `GMAIL_USERNAME` and `GMAIL_APP_PASSWORD` are environment-only
+Deno Deploy secrets and are never stored in PostgreSQL.
+
+When enabled, `GmailNotifier` sends plain text and escaped HTML, including
+available photo, quote, and saved-search links. Subjects follow
+`[Car Part Watcher] <watch>: New <listing> — <price>` (without the suffix when
+price is absent). Configure with `deno task email:configure -- --enable
+--use-gmail-address`; `deno task email:test` sends one isolated transport test.
+Failed SMTP delivery enters the existing retry/backoff flow, while disabled
+email uses `LoggingNotifier`. SMTP is at-least-once around the send/mark-
+delivered crash window, mitigated by a deterministic Message-ID.
+
 ## Production verification — 2026-09-13
 
 The first successful run of the real `Accord Alternator` watch had 177

@@ -5,6 +5,8 @@ import {
   type NotificationEvent,
 } from "../repositories/notification_repository.ts";
 import type { NormalizedListing } from "../listing_normalizer.ts";
+import { getEmailNotificationSettings } from "../repositories/email_notification_settings_repository.ts";
+import { GmailNotifier } from "./gmail_notifier.ts";
 
 export interface NotificationEventV1 {
   version: 1;
@@ -184,9 +186,15 @@ export class LoggingNotifier implements Notifier {
   }
 }
 
+export async function configuredNotifier(): Promise<Notifier> {
+  const settings = await getEmailNotificationSettings();
+  return settings.enabled ? new GmailNotifier(settings) : new LoggingNotifier();
+}
+
 export async function processNotificationOutbox(
-  notifier: Notifier = new LoggingNotifier(),
+  notifier?: Notifier,
 ) {
+  const selectedNotifier = notifier ?? await configuredNotifier();
   const events = await claimNotificationEvents();
   let delivered = 0;
   let failed = 0;
@@ -217,7 +225,7 @@ export async function processNotificationOutbox(
       console.log(
         `[notification_outbox_claimed] eventId=${canonicalEvent.eventId} outboxId=${row.id}`,
       );
-      await notifier.deliver(canonicalEvent);
+      await selectedNotifier.deliver(canonicalEvent);
       await markDelivered(row.id);
       console.log(
         `[notification_delivered] eventId=${canonicalEvent.eventId} outboxId=${row.id}`,
@@ -230,7 +238,10 @@ export async function processNotificationOutbox(
       console.error(
         `[notification_failed] eventId=${canonicalEvent.eventId} outboxId=${row.id} error=${message}`,
       );
-      await markFailed(row.id, row.attempts, "NOTIFIER_FAILED", message);
+      const code = deliverErr && typeof deliverErr === "object" && "code" in deliverErr
+        ? String((deliverErr as { code: unknown }).code)
+        : "NOTIFIER_FAILED";
+      await markFailed(row.id, row.attempts, code, message);
       failed++;
     }
   }

@@ -25,3 +25,8 @@ parameters (`tk1`–`tk6`, `seqNum`, `sessionID`, and `userUID`). A stable
 canonical listing URL was not observed, so the application does not invent
 one. Identity v2 requires seller, stock, part GUID, and part; rows missing any
 one of these strong components are deliberately not persisted.
+
+The notification outbox selects its notifier once per drain. Disabled email
+selects `LoggingNotifier`; enabled settings select Gmail SMTP using
+environment-only credentials and DB-managed non-secret recipient configuration.
+Transport failures remain in the existing durable outbox retry path.
