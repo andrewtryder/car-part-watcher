@@ -1,12 +1,14 @@
 const encoder = new TextEncoder();
 
 export interface ConsoleAuthConfig {
+  enabled?: boolean;
   username?: string;
   password?: string;
 }
 
 export function consoleAuthConfig(): ConsoleAuthConfig {
   return {
+    enabled: Deno.env.get("CONSOLE_AUTH_ENABLED")?.toLowerCase() === "true",
     username: Deno.env.get("CONSOLE_USERNAME"),
     password: Deno.env.get("CONSOLE_PASSWORD"),
   };
@@ -56,6 +58,7 @@ export async function authorizeConsoleRequest(
   request: Request,
   config: ConsoleAuthConfig = consoleAuthConfig(),
 ) {
+  if (!config.enabled) return undefined;
   if (!config.username || !config.password) return unavailable();
   const credentials = decodeCredentials(request.headers.get("authorization"));
   if (!credentials) return unauthorized();
@@ -66,7 +69,7 @@ export async function authorizeConsoleRequest(
   return usernameMatches && passwordMatches ? undefined : unauthorized();
 }
 
-/** `/health` is intentionally public; every other HTTP request requires Basic Auth. */
+/** `/health` is public; Basic Auth is opt-in with CONSOLE_AUTH_ENABLED=true. */
 export async function withConsoleAuthentication(
   request: Request,
   next: () => Response | Promise<Response>,
