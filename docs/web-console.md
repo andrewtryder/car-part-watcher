@@ -18,12 +18,13 @@ read state and watch filtering, and global/per-watch run history. It remains
 intentionally unauthenticated and must not be shared publicly until access
 control is added.
 
-The single-user access control is browser-native HTTP Basic Authentication.
+The optional single-user access control is browser-native HTTP Basic Authentication.
 There is no React login screen and the frontend does not store or inject
 credentials. Once the browser authenticates the same-origin SPA, its existing
 API calls continue normally. `GET /health` is the only public route; all SPA
 routes, assets, read APIs, and mutations require the Deno Deploy
-`CONSOLE_USERNAME` and `CONSOLE_PASSWORD` secrets.
+`CONSOLE_USERNAME` and `CONSOLE_PASSWORD` secrets when
+`CONSOLE_AUTH_ENABLED=true`; it defaults to false.
 
 ## Production verification — 2026-09-13
 

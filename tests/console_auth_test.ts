@@ -4,7 +4,7 @@ import {
   withConsoleAuthentication,
 } from "../src/console_auth.ts";
 
-const config = { username: "operator", password: "test-password" };
+const config = { enabled: true, username: "operator", password: "test-password" };
 const request = (path: string, authorization?: string, method = "GET") =>
   new Request(`https://console.test${path}`, {
     method,
@@ -68,7 +68,7 @@ Deno.test("administrative API and mutation requests stop before their handlers",
 
 Deno.test("missing configuration fails closed and malformed credentials do not crash", async () => {
   assertEquals(
-    (await authorizeConsoleRequest(request("/"), {}))?.status,
+    (await authorizeConsoleRequest(request("/"), { enabled: true }))?.status,
     503,
   );
   for (const header of ["Basic", "Basic !!!", "Bearer token", basic("operator", ""), basic("wrong", "test-password")]) {
@@ -77,4 +77,18 @@ Deno.test("missing configuration fails closed and malformed credentials do not c
       401,
     );
   }
+});
+
+Deno.test("authentication is disabled unless explicitly enabled", async () => {
+  let reached = false;
+  const response = await withConsoleAuthentication(
+    request("/api/dashboard"),
+    () => {
+      reached = true;
+      return new Response("handler reached");
+    },
+    {},
+  );
+  assertEquals(response.status, 200);
+  assertEquals(reached, true);
 });

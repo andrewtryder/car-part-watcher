@@ -9,8 +9,9 @@ listing events enter the PostgreSQL outbox and flow to `LoggingNotifier`. The
 application uses `BrowserlessBrowserProvider` over CDP to ordinary headful
 Browserless Chrome; we do not operate a separate browser worker or VM.
 
-All HTTP console requests pass through the Basic Auth boundary before reaching
-the SPA or API handlers; only the minimal process health endpoint is public.
+When `CONSOLE_AUTH_ENABLED=true`, all HTTP console requests pass through the
+Basic Auth boundary before reaching the SPA or API handlers; only the minimal
+process health endpoint is public. Authentication is disabled by default.
 Deno Cron does not call HTTP routes: it imports `scheduledWatchDispatcher` and
 the outbox processor directly, so scheduled runs are independent of console
 credentials. The former HTTP schedule-trigger route was removed rather than
