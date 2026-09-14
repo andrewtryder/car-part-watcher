@@ -29,6 +29,9 @@ Failed SMTP delivery enters the existing retry/backoff flow, while disabled
 email uses `LoggingNotifier`. SMTP is at-least-once around the send/mark-
 delivered crash window, mitigated by a deterministic Message-ID.
 
+The test command sends directly and never creates a notification event, changes
+listing state, or invokes a Car-Part search.
+
 ## Production verification — 2026-09-13
 
 The first successful run of the real `Accord Alternator` watch had 177
