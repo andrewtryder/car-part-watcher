@@ -71,11 +71,20 @@ export async function failSearchRun(
     errorMessage.slice(0, 500)
   } where id=${id}`;
 }
+export async function recoverStaleRuns(maxAgeMinutes = 10) {
+  try {
+    await getDatabase()`update search_runs set status='failed',completed_at=coalesce(completed_at,now()),error_code='RUN_TIMEOUT',error_message='Run timed out or was interrupted' where status='running' and started_at < now() - (${maxAgeMinutes} || ' minutes')::interval`;
+  } catch {
+    // Non-blocking cleanup
+  }
+}
 export async function listSearchRuns(watchId: string) {
+  await recoverStaleRuns();
   return (await getDatabase()`select * from search_runs where watch_id=${watchId} order by started_at desc limit 25`)
     .map(mapSearchRun);
 }
 export async function listRecentSearchRuns(limit = 50) {
+  await recoverStaleRuns();
   const rows =
     await getDatabase()`select r.*, w.name as watch_name from search_runs r join watches w on w.id=r.watch_id order by r.started_at desc limit ${
       Math.min(Math.max(limit, 1), 100)

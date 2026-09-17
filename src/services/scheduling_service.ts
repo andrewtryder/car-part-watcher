@@ -1,4 +1,5 @@
 import { listScheduledWatches } from "../repositories/watch_repository.ts";
+import { recoverStaleRuns } from "../repositories/search_run_repository.ts";
 import { executeWatch } from "./reconciliation_service.ts";
 
 export type ScheduleSlot = "morning" | "afternoon" | "evening";
@@ -10,6 +11,7 @@ export function localSlot(date = new Date()): { date: string; hour: number } {
   return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: Number(get("hour")) };
 }
 export async function scheduledWatchDispatcher(slot: ScheduleSlot, now = new Date()) {
+  await recoverStaleRuns();
   const local = localSlot(now); if (local.hour !== slotHours[slot]) return { slot, skipped: "outside_window", attempted: 0, completed: 0, failed: 0 };
   const watches = await listScheduledWatches(slot); let completed = 0; let failed = 0;
   for (const watch of watches) try {
