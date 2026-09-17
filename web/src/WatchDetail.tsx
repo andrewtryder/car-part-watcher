@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import {
   deleteWatch,
   refreshUnreadCount,
@@ -62,6 +63,25 @@ const statusLabel = (status: Run["status"]) =>
 const statusTone = (status: Run["status"]) =>
   status === "succeeded" ? "green" : status === "failed" ? "red" : "amber";
 
+type SortField =
+  | "photo"
+  | "vehicle"
+  | "details"
+  | "price"
+  | "recycler"
+  | "firstSeen"
+  | "lastSeen"
+  | "actions";
+
+type SortDirection = "asc" | "desc";
+
+function parsePrice(display?: string): number {
+  if (!display) return Number.POSITIVE_INFINITY;
+  const cleaned = display.replace(/[^0-9.]/g, "");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? Number.POSITIVE_INFINITY : num;
+}
+
 function SectionError({ retry }: { retry: () => void }) {
   return (
     <p className="notice error">
@@ -76,6 +96,8 @@ function Listings({
   loading,
   failed,
   timezone,
+  limit,
+  onLimitChange,
   onRun,
   retry,
 }: {
@@ -83,9 +105,126 @@ function Listings({
   loading: boolean;
   failed: boolean;
   timezone: string;
+  limit: number;
+  onLimitChange: (limit: number) => void;
   onRun: () => void;
   retry: () => void;
 }) {
+  const [sortField, setSortField] = useState<SortField>("lastSeen");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      if (
+        field === "lastSeen" ||
+        field === "firstSeen" ||
+        field === "photo" ||
+        field === "actions"
+      ) {
+        setSortDirection("desc");
+      } else {
+        setSortDirection("asc");
+      }
+    }
+  };
+
+  const sortedItems = useMemo(() => {
+    if (!items) return [];
+    const list = [...items];
+    list.sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case "photo": {
+          const valA = a.imageUrl ? 1 : 0;
+          const valB = b.imageUrl ? 1 : 0;
+          comparison = valA - valB;
+          break;
+        }
+        case "vehicle": {
+          const strA = [a.year, a.makeModel, a.part].filter(Boolean).join(" ");
+          const strB = [b.year, b.makeModel, b.part].filter(Boolean).join(" ");
+          comparison = strA.localeCompare(strB, undefined, { sensitivity: "base" });
+          break;
+        }
+        case "details": {
+          const strA = [a.description, a.damageCode, a.grade, a.stockNumber]
+            .filter(Boolean)
+            .join(" ");
+          const strB = [b.description, b.damageCode, b.grade, b.stockNumber]
+            .filter(Boolean)
+            .join(" ");
+          comparison = strA.localeCompare(strB, undefined, { sensitivity: "base" });
+          break;
+        }
+        case "price": {
+          const priceA = a.priceAmount ?? parsePrice(a.priceDisplay);
+          const priceB = b.priceAmount ?? parsePrice(b.priceDisplay);
+          comparison = priceA - priceB;
+          break;
+        }
+        case "recycler": {
+          const strA = [a.recyclerName, a.recyclerLocation]
+            .filter(Boolean)
+            .join(" ");
+          const strB = [b.recyclerName, b.recyclerLocation]
+            .filter(Boolean)
+            .join(" ");
+          comparison = strA.localeCompare(strB, undefined, { sensitivity: "base" });
+          break;
+        }
+        case "firstSeen": {
+          const timeA = a.firstSeenAt ? new Date(a.firstSeenAt).getTime() : 0;
+          const timeB = b.firstSeenAt ? new Date(b.firstSeenAt).getTime() : 0;
+          comparison = timeA - timeB;
+          break;
+        }
+        case "lastSeen": {
+          const timeA = a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0;
+          const timeB = b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0;
+          comparison = timeA - timeB;
+          break;
+        }
+        case "actions": {
+          const countA = (a.photoUrl ? 1 : 0) + (a.quoteUrl ? 1 : 0);
+          const countB = (b.photoUrl ? 1 : 0) + (b.quoteUrl ? 1 : 0);
+          comparison = countA - countB;
+          break;
+        }
+      }
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+    return list;
+  }, [items, sortField, sortDirection]);
+
+  const renderSortHeader = (field: SortField, label: string) => {
+    const isActive = sortField === field;
+    return (
+      <th
+        className="sortableTh"
+        onClick={() => handleSort(field)}
+        title={`Click to sort by ${label} (${
+          isActive && sortDirection === "asc" ? "descending" : "ascending"
+        })`}
+      >
+        <span className="sortThContent">
+          <span>{label}</span>
+          {isActive ? (
+            sortDirection === "asc" ? (
+              <ArrowUp size={14} className="sortIconActive" />
+            ) : (
+              <ArrowDown size={14} className="sortIconActive" />
+            )
+          ) : (
+            <ArrowUpDown size={14} className="sortIconInactive" />
+          )}
+        </span>
+      </th>
+    );
+  };
+
   return (
     <section className="section">
       <div className="sectionHead">
@@ -93,7 +232,52 @@ function Listings({
           <p className="eyebrow">RECENTLY SEEN</p>
           <h2>Recently Seen Parts</h2>
         </div>
-        <span className="muted">Showing recent {items?.length ?? 0}</span>
+        <div className="tableControls">
+          <label>
+            Sort
+            <select
+              value={`${sortField}-${sortDirection}`}
+              onChange={(e) => {
+                const [field, dir] = e.target.value.split("-") as [
+                  SortField,
+                  SortDirection,
+                ];
+                setSortField(field);
+                setSortDirection(dir);
+              }}
+            >
+              <option value="lastSeen-desc">Last Seen (Newest first)</option>
+              <option value="lastSeen-asc">Last Seen (Oldest first)</option>
+              <option value="firstSeen-desc">First Seen (Newest first)</option>
+              <option value="firstSeen-asc">First Seen (Oldest first)</option>
+              <option value="price-asc">Price (Lowest first)</option>
+              <option value="price-desc">Price (Highest first)</option>
+              <option value="vehicle-asc">Vehicle (A – Z)</option>
+              <option value="vehicle-desc">Vehicle (Z – A)</option>
+              <option value="recycler-asc">Recycler (A – Z)</option>
+              <option value="recycler-desc">Recycler (Z – A)</option>
+              <option value="details-asc">Details (A – Z)</option>
+              <option value="details-desc">Details (Z – A)</option>
+              <option value="photo-desc">With Photo first</option>
+            </select>
+          </label>
+          <label>
+            Show
+            <select
+              value={limit}
+              onChange={(e) => onLimitChange(Number(e.target.value))}
+            >
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={250}>250</option>
+              <option value={500}>500 (All)</option>
+              <option value={1000}>1000 (All)</option>
+            </select>
+          </label>
+          <span className="muted">
+            Showing {sortedItems.length} {sortedItems.length === 1 ? "part" : "parts"}
+          </span>
+        </div>
       </div>
       {loading
         ? (
@@ -116,18 +300,18 @@ function Listings({
             <table>
               <thead>
                 <tr>
-                  <th>Photo</th>
-                  <th>Vehicle</th>
-                  <th>Details</th>
-                  <th>Price</th>
-                  <th>Recycler</th>
-                  <th>First Seen</th>
-                  <th>Last Seen</th>
-                  <th>Actions</th>
+                  {renderSortHeader("photo", "Photo")}
+                  {renderSortHeader("vehicle", "Vehicle")}
+                  {renderSortHeader("details", "Details")}
+                  {renderSortHeader("price", "Price")}
+                  {renderSortHeader("recycler", "Recycler")}
+                  {renderSortHeader("firstSeen", "First Seen")}
+                  {renderSortHeader("lastSeen", "Last Seen")}
+                  {renderSortHeader("actions", "Actions")}
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {sortedItems.map((item) => (
                   <tr key={item.id}>
                     <td>
                       {item.imageUrl
@@ -317,6 +501,7 @@ export function WatchDetail() {
   const [timezone, setTimezone] = useState("America/New_York");
   const [watchError, setWatchError] = useState<string>();
   const [listingError, setListingError] = useState(false);
+  const [listingsLimit, setListingsLimit] = useState<number>(500);
   const [runError, setRunError] = useState(false);
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -333,15 +518,20 @@ export function WatchDetail() {
     }
   }, [id]);
 
-  const loadListings = useCallback(async () => {
+  const loadListings = useCallback(async (limit = listingsLimit) => {
     if (!id) return;
     setListingError(false);
     try {
-      setListings(await watchListings(id));
+      setListings(await watchListings(id, limit));
     } catch {
       setListingError(true);
     }
-  }, [id]);
+  }, [id, listingsLimit]);
+
+  const handleLimitChange = (newLimit: number) => {
+    setListingsLimit(newLimit);
+    loadListings(newLimit);
+  };
 
   const loadRuns = useCallback(async () => {
     if (!id) return;
@@ -553,8 +743,10 @@ export function WatchDetail() {
         loading={!listings && !listingError}
         failed={listingError}
         timezone={timezone}
+        limit={listingsLimit}
+        onLimitChange={handleLimitChange}
         onRun={execute}
-        retry={loadListings}
+        retry={() => loadListings(listingsLimit)}
       />
 
       <RunHistory

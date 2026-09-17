@@ -173,6 +173,7 @@ export type WatchListing = {
   damageCode?: string;
   grade?: string;
   stockNumber?: string;
+  priceAmount?: number;
   priceDisplay?: string;
   recyclerName?: string;
   recyclerLocation?: string;
@@ -184,8 +185,8 @@ export type WatchListing = {
   lastSeenAt: string;
 };
 export type SystemStatus = { timezone: string };
-export const watchListings = (id: string) =>
-  call<WatchListing[]>(`/api/watches/${id}/listings`);
+export const watchListings = (id: string, limit = 500) =>
+  call<WatchListing[]>(`/api/watches/${id}/listings?limit=${limit}`);
 export const watchRuns = (id: string) => call<Run[]>(`/api/watches/${id}/runs`);
 export const system = () => call<SystemStatus>("/api/system");
 export const recentRuns = () =>

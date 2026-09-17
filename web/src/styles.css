@@ -512,6 +512,32 @@ button:disabled {
 }
 
 /* Tables */
+.tableControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tableControls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.tableControls select {
+  border: 1px solid #cbd5db;
+  border-radius: 6px;
+  padding: 5px 9px;
+  background: white;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  outline: none;
+}
+.tableControls select:focus {
+  border-color: var(--brand-accent);
+}
 .tableWrap {
   overflow-x: auto;
   background: var(--surface-card);
@@ -538,6 +564,30 @@ th {
   text-transform: uppercase;
   background: #fafbfc;
   border-bottom: 1px solid var(--border-subtle);
+}
+.sortableTh {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sortableTh:hover {
+  background: #f0f4f7;
+  color: var(--text-primary);
+}
+.sortThContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sortIconActive {
+  color: var(--brand-accent);
+}
+.sortIconInactive {
+  opacity: 0.3;
+  transition: opacity 0.15s ease;
+}
+.sortableTh:hover .sortIconInactive {
+  opacity: 0.75;
 }
 tbody tr:last-child td {
   border-bottom: none;
