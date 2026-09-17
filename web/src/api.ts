@@ -64,9 +64,16 @@ export const refreshCatalog = () =>
   call<{ counts: Record<string, number> }>("/api/catalog/refresh", {
     method: "POST",
   });
+export type ListingChange = {
+  field: string;
+  oldValue?: string;
+  newValue?: string;
+};
+
 export type Notification = {
   id: string;
   watchId: string;
+  eventType?: "new_listing" | "listing_updated";
   createdAt: string;
   readAt?: string;
   payload: {
@@ -85,15 +92,16 @@ export type Notification = {
       photoUrl?: string;
       quoteUrl?: string;
     };
+    changes?: ListingChange[];
   };
 };
 export const notifications = (
-  options: { all?: boolean; watchId?: string } = {},
+  options: { all?: boolean; watchId?: string; type?: string } = {},
 ) =>
   call<{ items: Notification[]; unreadCount: number }>(
     `/api/notifications?status=${options.all ? "all" : "unread"}${
       options.watchId ? `&watchId=${encodeURIComponent(options.watchId)}` : ""
-    }`,
+    }${options.type ? `&type=${encodeURIComponent(options.type)}` : ""}`,
   );
 export const markRead = (id: string) =>
   call<{ ok: true }>(`/api/notifications/${id}/read`, { method: "POST" });
@@ -183,6 +191,8 @@ export type WatchListing = {
   quoteUrl?: string;
   firstSeenAt: string;
   lastSeenAt: string;
+  isModified?: boolean;
+  changes?: ListingChange[];
 };
 export type SystemStatus = { timezone: string };
 export const watchListings = (id: string, limit = 500) =>

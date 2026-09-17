@@ -23,10 +23,40 @@ const date = (value: string, timezone: string) =>
 const joined = (...parts: Array<string | undefined>) =>
   parts.filter(Boolean).join(" · ");
 
+function formatFieldLabel(field: string): string {
+  switch (field) {
+    case "price_display":
+    case "priceDisplay":
+      return "Price";
+    case "grade":
+      return "Grade";
+    case "description":
+      return "Description";
+    case "damage_code":
+    case "damageCode":
+      return "Damage Code";
+    case "recycler_name":
+    case "recyclerName":
+      return "Recycler";
+    case "recycler_location":
+    case "recyclerLocation":
+      return "Location";
+    case "stock_number":
+    case "stockNumber":
+      return "Stock #";
+    case "photo_url":
+    case "photoUrl":
+      return "Photos";
+    default:
+      return field;
+  }
+}
+
 export function Inbox() {
   const [params, setParams] = useSearchParams();
   const all = params.get("status") === "all";
   const watchId = params.get("watchId") ?? "";
+  const typeFilter = params.get("type") ?? "";
   const [data, setData] = useState<
     { items: Notification[]; unreadCount: number }
   >();
@@ -38,13 +68,19 @@ export function Inbox() {
   const load = useCallback(async () => {
     setError(undefined);
     try {
-      setData(await notifications({ all, watchId: watchId || undefined }));
+      setData(
+        await notifications({
+          all,
+          watchId: watchId || undefined,
+          type: typeFilter || undefined,
+        }),
+      );
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not load new parts.",
+        cause instanceof Error ? cause.message : "Could not load notifications.",
       );
     }
-  }, [all, watchId]);
+  }, [all, watchId, typeFilter]);
 
   useEffect(() => {
     load();
@@ -139,6 +175,17 @@ export function Inbox() {
           </button>
         </div>
         <label>
+          Type
+          <select
+            value={typeFilter}
+            onChange={(event) => update("type", event.target.value)}
+          >
+            <option value="">All Notifications</option>
+            <option value="new_listing">New Parts Only</option>
+            <option value="listing_updated">Modified Parts Only</option>
+          </select>
+        </label>
+        <label>
           Saved Search
           <select
             value={watchId}
@@ -155,20 +202,20 @@ export function Inbox() {
       {error
         ? (
           <section className="state">
-            <h2>Could not load new parts.</h2>
+            <h2>Could not load notifications.</h2>
             <p>{error}</p>
             <button onClick={load}>Retry</button>
           </section>
         )
         : !data
-        ? <section className="skeleton">Loading new parts…</section>
+        ? <section className="skeleton">Loading notifications…</section>
         : !data.items.length
         ? (
           <section className="empty">
-            <h2>{all ? "No parts recorded" : "You’re all caught up"}</h2>
+            <h2>{all ? "No notifications recorded" : "You’re all caught up"}</h2>
             <p>
               {all
-                ? "New parts will appear here after a saved search runs and finds matches."
+                ? "Parts and changes will appear here after a saved search runs."
                 : "No unread notifications right now."}
             </p>
           </section>
@@ -177,21 +224,26 @@ export function Inbox() {
           <section className="inboxList">
             {data.items.map((event) => {
               const listing = event.payload.listing;
+              const isUpdated = event.eventType === "listing_updated";
+              const changes = event.payload.changes ?? [];
+
               return (
                 <article
                   className={`watch notification ${
-                    event.readAt ? "read" : "unread"
-                  }`}
+                    isUpdated ? "notificationModified" : ""
+                  } ${event.readAt ? "read" : "unread"}`}
                   key={event.id}
                 >
                   <div className="watchTop">
                     <span
-                      className={`badge ${event.readAt ? "slate" : "blue"}`}
+                      className={`badge ${
+                        event.readAt ? "slate" : isUpdated ? "amber" : "blue"
+                      }`}
                     >
-                      {event.readAt ? "Read" : "NEW"}
+                      {event.readAt ? "Read" : isUpdated ? "MODIFIED" : "NEW"}
                     </span>
                     <small className="muted">
-                      Found {date(event.createdAt, timezone)}
+                      {isUpdated ? "Updated" : "Found"} {date(event.createdAt, timezone)}
                     </small>
                   </div>
 
@@ -231,6 +283,27 @@ export function Inbox() {
                           )}
                         </p>
                       )}
+
+                      {isUpdated && changes.length > 0 && (
+                        <div className="changeDiffBox">
+                          <div className="changeDiffHeader">What Changed</div>
+                          {changes.map((ch, idx) => (
+                            <div key={idx} className="changeDiffRow">
+                              <span className="changeDiffField">
+                                {formatFieldLabel(ch.field)}:
+                              </span>
+                              <span className="changeDiffOld">
+                                {ch.oldValue || "—"}
+                              </span>
+                              <span className="diffArrow">→</span>
+                              <span className="changeDiffNew">
+                                {ch.newValue || "—"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {(listing.recyclerName || listing.location) && (
                         <p>
                           {listing.recyclerName && (

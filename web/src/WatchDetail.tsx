@@ -63,6 +63,35 @@ const statusLabel = (status: Run["status"]) =>
 const statusTone = (status: Run["status"]) =>
   status === "succeeded" ? "green" : status === "failed" ? "red" : "amber";
 
+function formatFieldLabel(field: string): string {
+  switch (field) {
+    case "price_display":
+    case "priceDisplay":
+      return "Price";
+    case "grade":
+      return "Grade";
+    case "description":
+      return "Description";
+    case "damage_code":
+    case "damageCode":
+      return "Damage";
+    case "recycler_name":
+    case "recyclerName":
+      return "Recycler";
+    case "recycler_location":
+    case "recyclerLocation":
+      return "Location";
+    case "stock_number":
+    case "stockNumber":
+      return "Stock #";
+    case "photo_url":
+    case "photoUrl":
+      return "Photos";
+    default:
+      return field;
+  }
+}
+
 type SortField =
   | "photo"
   | "vehicle"
@@ -71,7 +100,8 @@ type SortField =
   | "recycler"
   | "firstSeen"
   | "lastSeen"
-  | "actions";
+  | "actions"
+  | "modified";
 
 type SortDirection = "asc" | "desc";
 
@@ -112,6 +142,7 @@ function Listings({
 }) {
   const [sortField, setSortField] = useState<SortField>("lastSeen");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [filterMode, setFilterMode] = useState<"all" | "modified">("all");
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -122,7 +153,8 @@ function Listings({
         field === "lastSeen" ||
         field === "firstSeen" ||
         field === "photo" ||
-        field === "actions"
+        field === "actions" ||
+        field === "modified"
       ) {
         setSortDirection("desc");
       } else {
@@ -133,10 +165,19 @@ function Listings({
 
   const sortedItems = useMemo(() => {
     if (!items) return [];
-    const list = [...items];
+    let list = [...items];
+    if (filterMode === "modified") {
+      list = list.filter((item) => item.isModified);
+    }
     list.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
+        case "modified": {
+          const modA = a.isModified ? 1 : 0;
+          const modB = b.isModified ? 1 : 0;
+          comparison = modA - modB;
+          break;
+        }
         case "photo": {
           const valA = a.imageUrl ? 1 : 0;
           const valB = b.imageUrl ? 1 : 0;
@@ -197,7 +238,7 @@ function Listings({
       return sortDirection === "asc" ? comparison : -comparison;
     });
     return list;
-  }, [items, sortField, sortDirection]);
+  }, [items, filterMode, sortField, sortDirection]);
 
   const renderSortHeader = (field: SortField, label: string) => {
     const isActive = sortField === field;
@@ -234,6 +275,17 @@ function Listings({
         </div>
         <div className="tableControls">
           <label>
+            Filter
+            <select
+              value={filterMode}
+              onChange={(e) =>
+                setFilterMode(e.target.value as "all" | "modified")}
+            >
+              <option value="all">All parts</option>
+              <option value="modified">Modified only</option>
+            </select>
+          </label>
+          <label>
             Sort
             <select
               value={`${sortField}-${sortDirection}`}
@@ -248,6 +300,7 @@ function Listings({
             >
               <option value="lastSeen-desc">Last Seen (Newest first)</option>
               <option value="lastSeen-asc">Last Seen (Oldest first)</option>
+              <option value="modified-desc">Modified first</option>
               <option value="firstSeen-desc">First Seen (Newest first)</option>
               <option value="firstSeen-asc">First Seen (Oldest first)</option>
               <option value="price-asc">Price (Lowest first)</option>
@@ -311,61 +364,101 @@ function Listings({
                 </tr>
               </thead>
               <tbody>
-                {sortedItems.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      {item.imageUrl
-                        ? (
-                          <a
-                            href={item.photoUrl || item.imageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="listingThumbLink"
-                          >
-                            <img
-                              src={item.imageUrl}
-                              alt="Part thumbnail"
-                              className="listingThumb"
-                              width="64"
-                              height="48"
-                            />
-                          </a>
-                        )
-                        : (
-                          <div className="listingThumbPlaceholder">
-                            No Photo
+                {sortedItems.map((item) => {
+                  const priceChange = item.changes?.find((c) =>
+                    c.field === "price_display" || c.field === "priceDisplay"
+                  );
+                  const nonPriceChanges = item.changes?.filter((c) =>
+                    c.field !== "price_display" && c.field !== "priceDisplay"
+                  ) ?? [];
+
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        {item.imageUrl
+                          ? (
+                            <a
+                              href={item.photoUrl || item.imageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="listingThumbLink"
+                            >
+                              <img
+                                src={item.imageUrl}
+                                alt="Part thumbnail"
+                                className="listingThumb"
+                                width="64"
+                                height="48"
+                              />
+                            </a>
+                          )
+                          : (
+                            <div className="listingThumbPlaceholder">
+                              No Photo
+                            </div>
+                          )}
+                      </td>
+                      <td>
+                        <strong>
+                          {[item.year, item.makeModel, item.part].filter(Boolean)
+                            .join(" ") || "Part"}
+                        </strong>
+                        {item.isModified && (
+                          <div style={{ marginTop: "4px" }}>
+                            <span className="badge amber">
+                              MODIFIED
+                            </span>
                           </div>
                         )}
-                    </td>
-                    <td>
-                      <strong>
-                        {[item.year, item.makeModel, item.part].filter(Boolean)
-                          .join(" ") || "Part"}
-                      </strong>
-                    </td>
-                    <td>
-                      {[
-                        item.description,
-                        item.damageCode && `Damage: ${item.damageCode}`,
-                        item.grade && `Grade: ${item.grade}`,
-                        item.stockNumber && `Stock #${item.stockNumber}`,
-                      ].filter(Boolean).map((text) => (
-                        <div key={text}>{text}</div>
-                      ))}
-                    </td>
-                    <td>
-                      <strong>{item.priceDisplay || "—"}</strong>
-                    </td>
-                    <td>
-                      <div>{item.recyclerName || "—"}</div>
-                      {item.recyclerLocation && (
-                        <small className="muted">{item.recyclerLocation}</small>
-                      )}
-                    </td>
-                    <td>{formatDate(item.firstSeenAt, timezone)}</td>
-                    <td>{formatDate(item.lastSeenAt, timezone)}</td>
-                    <td>
-                      {item.photoUrl || item.quoteUrl
+                      </td>
+                      <td>
+                        {[
+                          item.description,
+                          item.damageCode && `Damage: ${item.damageCode}`,
+                          item.grade && `Grade: ${item.grade}`,
+                          item.stockNumber && `Stock #${item.stockNumber}`,
+                        ].filter(Boolean).map((text) => (
+                          <div key={text}>{text}</div>
+                        ))}
+                        {nonPriceChanges.length > 0 && (
+                          <div className="changeTagsGroup">
+                            {nonPriceChanges.map((ch, idx) => (
+                              <span
+                                key={idx}
+                                className="changeTag"
+                                title={`Was: ${ch.oldValue ?? "none"}`}
+                              >
+                                {formatFieldLabel(ch.field)}: {ch.oldValue ?? "none"} → {ch.newValue ?? "none"}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {priceChange ? (
+                          <div className="changeDiffText">
+                            <span className="oldPriceStrike">
+                              {priceChange.oldValue || "—"}
+                            </span>
+                            <span className="diffArrow">→</span>
+                            <span className="diffHighlight">
+                              {item.priceDisplay || "—"}
+                            </span>
+                          </div>
+                        ) : (
+                          <strong>{item.priceDisplay || "—"}</strong>
+                        )}
+                      </td>
+                      <td>
+                        <div>{item.recyclerName || "—"}</div>
+                        {item.recyclerLocation && (
+                          <small className="muted">{item.recyclerLocation}</small>
+                        )}
+                      </td>
+                      <td>{formatDate(item.firstSeenAt, timezone)}</td>
+                      <td>{formatDate(item.lastSeenAt, timezone)}</td>
+                      <td>
+                        {item.photoUrl || item.quoteUrl
                         ? (
                           <div className="accentLinks">
                             {item.photoUrl && (
@@ -396,7 +489,7 @@ function Listings({
                         : <span className="muted">—</span>}
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

@@ -6,7 +6,7 @@ export interface NotificationEvent {
   watchId: string;
   searchRunId: string;
   listingId?: string;
-  eventType: "new_listing";
+  eventType: "new_listing" | "listing_updated";
   payload: unknown;
   status: "pending" | "processing" | "delivered" | "failed";
   attempts: number;
@@ -59,6 +59,21 @@ export async function createNewListingEvent(
     JSON.stringify(input.payload)
   }::jsonb) on conflict (search_run_id,listing_id,event_type) do nothing`;
 }
+export async function createListingUpdatedEvent(
+  sql: Sql,
+  input: {
+    id?: string;
+    watchId: string;
+    searchRunId: string;
+    listingId: string;
+    payload: unknown;
+  },
+) {
+  const id = input.id ?? crypto.randomUUID();
+  await sql`insert into notification_events (id,watch_id,search_run_id,event_type,listing_id,payload,status,processed_at) values (${id},${input.watchId},${input.searchRunId},'listing_updated',${input.listingId},${
+    JSON.stringify(input.payload)
+  }::jsonb,'delivered',now()) on conflict (search_run_id,listing_id,event_type) do nothing`;
+}
 export async function claimNotificationEvents(limit = 20) {
   return await getDatabase().begin(async (sql) => {
     const rows =
@@ -96,18 +111,19 @@ export async function listNotificationEvents() {
     .map(map);
 }
 export async function listInboxNotifications(
-  options: { unread?: boolean; watchId?: string; limit?: number } = {},
+  options: { unread?: boolean; watchId?: string; limit?: number; eventType?: string } = {},
 ) {
   const sql = getDatabase();
   const watchId = options.watchId ?? null;
+  const eventType = options.eventType ?? null;
   const rows =
-    await sql`select * from notification_events where event_type='new_listing' and (${
+    await sql`select * from notification_events where (${eventType}::text is null and event_type in ('new_listing', 'listing_updated') or event_type = ${eventType}) and (${
       options.unread ?? true
     }=false or read_at is null) and (${watchId}::uuid is null or watch_id=${watchId}::uuid) order by created_at desc limit ${
       Math.min(options.limit ?? 50, 100)
     }`;
   const unread =
-    await sql`select count(*)::int as count from notification_events where event_type='new_listing' and read_at is null`;
+    await sql`select count(*)::int as count from notification_events where (${eventType}::text is null and event_type in ('new_listing', 'listing_updated') or event_type = ${eventType}) and read_at is null`;
   return { items: rows.map(map), unreadCount: unread[0].count };
 }
 export async function markNotificationRead(id: string) {
@@ -115,7 +131,7 @@ export async function markNotificationRead(id: string) {
 }
 export async function markAllNotificationsRead(watchId?: string) {
   const id = watchId ?? null;
-  await getDatabase()`update notification_events set read_at=coalesce(read_at,now()),updated_at=now() where event_type='new_listing' and read_at is null and (${id}::uuid is null or watch_id=${id}::uuid)`;
+  await getDatabase()`update notification_events set read_at=coalesce(read_at,now()),updated_at=now() where event_type in ('new_listing', 'listing_updated') and read_at is null and (${id}::uuid is null or watch_id=${id}::uuid)`;
 }
 export async function notificationCounts() {
   const rows =

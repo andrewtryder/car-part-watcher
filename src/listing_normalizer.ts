@@ -52,6 +52,49 @@ export async function normalizeListing(raw: CarPartListing): Promise<NormalizedL
   };
 }
 
+export interface ListingFieldChange {
+  field: string;
+  oldValue?: string;
+  newValue?: string;
+}
+
+export function detailedMutableChanges(
+  previous: Record<string, any>,
+  next: NormalizedListing,
+): ListingFieldChange[] {
+  const fields: { key: keyof NormalizedListing; rowKey: string }[] = [
+    { key: "priceDisplay", rowKey: "price_display" },
+    { key: "priceAmount", rowKey: "price_amount" },
+    { key: "grade", rowKey: "grade" },
+    { key: "description", rowKey: "description" },
+    { key: "damageCode", rowKey: "damage_code" },
+    { key: "stockNumber", rowKey: "stock_number" },
+    { key: "recyclerName", rowKey: "recycler_name" },
+    { key: "recyclerLocation", rowKey: "recycler_location" },
+    { key: "recyclerPhone", rowKey: "recycler_phone" },
+    { key: "imageUrl", rowKey: "image_url" },
+    { key: "photoUrl", rowKey: "photo_url" },
+    { key: "quoteUrl", rowKey: "quote_url" },
+  ];
+
+  const changes: ListingFieldChange[] = [];
+  for (const { key, rowKey } of fields) {
+    const rawOld = previous[key] !== undefined ? previous[key] : previous[rowKey];
+    const oldVal = (key === "priceAmount" && rawOld !== undefined && rawOld !== null)
+      ? Number(rawOld)
+      : (rawOld ?? undefined);
+    const newVal = next[key] ?? undefined;
+    if (oldVal !== newVal) {
+      changes.push({
+        field: key,
+        oldValue: oldVal !== undefined && oldVal !== null ? String(oldVal) : undefined,
+        newValue: newVal !== undefined && newVal !== null ? String(newVal) : undefined,
+      });
+    }
+  }
+  return changes;
+}
+
 export function mutableChanges(previous: NormalizedListing, next: NormalizedListing): string[] {
   const fields: (keyof NormalizedListing)[] = [
     "description", "damageCode", "grade", "priceAmount", "priceCurrency", "priceDisplay",
@@ -59,3 +102,4 @@ export function mutableChanges(previous: NormalizedListing, next: NormalizedList
   ];
   return fields.filter((field) => previous[field] !== next[field]).map(String);
 }
+

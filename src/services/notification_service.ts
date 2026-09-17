@@ -11,7 +11,7 @@ import { GmailNotifier } from "./gmail_notifier.ts";
 export interface NotificationEventV1 {
   version: 1;
   eventId: string;
-  eventType: "new_listing";
+  eventType: "new_listing" | "listing_updated";
   watch: {
     id: string;
     name: string;
@@ -30,6 +30,11 @@ export interface NotificationEventV1 {
     photoUrl?: string;
     quoteUrl?: string;
   };
+  changes?: Array<{
+    field: string;
+    oldValue?: string;
+    newValue?: string;
+  }>;
   schedule: {
     slot: string;
   };
@@ -44,9 +49,11 @@ export class NotificationPayloadValidationError extends Error {
 
 export function buildNotificationEventV1(params: {
   eventId?: string;
+  eventType?: "new_listing" | "listing_updated";
   watch: { id: string; name: string };
   listing: { id: string; listing: NormalizedListing };
   scheduleSlot?: string;
+  changes?: Array<{ field: string; oldValue?: string; newValue?: string }>;
 }): NotificationEventV1 {
   const rawListing = params.listing.listing;
   const title = [rawListing.year, rawListing.makeModel, rawListing.part]
@@ -56,7 +63,7 @@ export function buildNotificationEventV1(params: {
   return {
     version: 1,
     eventId: params.eventId ?? crypto.randomUUID(),
-    eventType: "new_listing",
+    eventType: params.eventType ?? "new_listing",
     watch: {
       id: params.watch.id,
       name: params.watch.name,
@@ -75,6 +82,7 @@ export function buildNotificationEventV1(params: {
       photoUrl: rawListing.photoUrl,
       quoteUrl: rawListing.quoteUrl,
     },
+    changes: params.changes,
     schedule: {
       slot: params.scheduleSlot ?? "manual",
     },
@@ -103,7 +111,7 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
     );
   }
 
-  if (obj.eventType !== "new_listing") {
+  if (obj.eventType !== "new_listing" && obj.eventType !== "listing_updated") {
     throw new NotificationPayloadValidationError(
       `Invalid or missing eventType: ${String(obj.eventType)}`,
     );
@@ -146,10 +154,18 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
     throw new NotificationPayloadValidationError("Missing or invalid schedule.slot");
   }
 
+  const changes = Array.isArray(obj.changes)
+    ? (obj.changes as Array<Record<string, unknown>>).map((c) => ({
+      field: String(c.field ?? ""),
+      oldValue: typeof c.oldValue === "string" ? c.oldValue : undefined,
+      newValue: typeof c.newValue === "string" ? c.newValue : undefined,
+    }))
+    : undefined;
+
   return {
     version: 1,
     eventId: obj.eventId,
-    eventType: "new_listing",
+    eventType: obj.eventType as "new_listing" | "listing_updated",
     watch: {
       id: watch.id,
       name: watch.name,
@@ -168,6 +184,7 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
       photoUrl: typeof listing.photoUrl === "string" ? listing.photoUrl : undefined,
       quoteUrl: typeof listing.quoteUrl === "string" ? listing.quoteUrl : undefined,
     },
+    changes,
     schedule: {
       slot: schedule.slot,
     },
