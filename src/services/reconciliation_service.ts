@@ -7,8 +7,9 @@ import { completeSearchRun, createSearchRun, failSearchRun, hasPreviousSuccessfu
 import { getWatch, type Watch } from "../repositories/watch_repository.ts";
 import { SpikeError } from "../types.ts";
 import { deduplicateNormalized, ListingIdentityCollisionError } from "../reconciliation.ts";
-import { createNewListingEvent } from "../repositories/notification_repository.ts";
+import { createListingUpdatedEvent, createNewListingEvent } from "../repositories/notification_repository.ts";
 import { buildNotificationEventV1, processNotificationOutbox } from "./notification_service.ts";
+import type { ListingFieldChange } from "../listing_normalizer.ts";
 
 export interface WatchRunSummary {
   runId: string; status: "succeeded"; pagesFetched: number; listingCount: number;
@@ -45,11 +46,18 @@ export async function executeWatch(
     if (!unique.size) throw new Error("No listings had a durable source identity");
     const observedAt = new Date();
     let newListingCount = 0; let changedCount = 0;
-    const newListings: NormalizedListing[] = []; const newEventInputs: { listingId: string; listing: NormalizedListing }[] = [];
+    const newListings: NormalizedListing[] = [];
+    const newEventInputs: { listingId: string; listing: NormalizedListing }[] = [];
+    const updatedEventInputs: { listingId: string; listing: NormalizedListing; changes: ListingFieldChange[] }[] = [];
     await getDatabase().begin(async (sql) => {
       for (const listing of unique.values()) {
-        const stored = await upsertListing(sql, listing, observedAt);
-        if (stored.changedFields.length) changedCount++;
+        const stored = await upsertListing(sql, listing, observedAt, { watchId: watch.id, runId: run.id });
+        if (stored.changedFields.length) {
+          changedCount++;
+          if (!stored.isNew && stored.changes?.length) {
+            updatedEventInputs.push({ listingId: stored.id, listing, changes: stored.changes });
+          }
+        }
         if (await associateListing(sql, watch.id, stored.id, run.id, observedAt)) {
           newListingCount++; newListings.push(listing); newEventInputs.push({ listingId: stored.id, listing });
         }
@@ -74,6 +82,22 @@ export async function executeWatch(
               scheduleSlot,
             });
             await createNewListingEvent(sql, {
+              id: canonicalEvent.eventId,
+              watchId: watch.id,
+              searchRunId: run.id,
+              listingId,
+              payload: canonicalEvent,
+            });
+          }
+          for (const { listingId, listing, changes } of updatedEventInputs) {
+            const canonicalEvent = buildNotificationEventV1({
+              watch: { id: watch.id, name: watch.name },
+              listing: { id: listingId, listing },
+              scheduleSlot,
+              eventType: "listing_updated",
+              changes,
+            });
+            await createListingUpdatedEvent(sql, {
               id: canonicalEvent.eventId,
               watchId: watch.id,
               searchRunId: run.id,

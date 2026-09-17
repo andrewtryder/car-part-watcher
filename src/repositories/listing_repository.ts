@@ -1,5 +1,9 @@
 import type { CarPartListing } from "../types.ts";
-import type { NormalizedListing } from "../listing_normalizer.ts";
+import {
+  detailedMutableChanges,
+  type ListingFieldChange,
+  type NormalizedListing,
+} from "../listing_normalizer.ts";
 import { getDatabase } from "../db/database.ts";
 
 export type Sql = any;
@@ -8,6 +12,8 @@ export interface StoredListing extends NormalizedListing {
   id: string;
   firstSeenAt: string;
   lastSeenAt: string;
+  isModified?: boolean;
+  changes?: ListingFieldChange[];
 }
 
 const rowToListing = (row: any): StoredListing => ({
@@ -26,7 +32,7 @@ const rowToListing = (row: any): StoredListing => ({
   description: row.description,
   damageCode: row.damage_code,
   grade: row.grade,
-  priceAmount: row.price_amount === null ? undefined : Number(row.price_amount),
+  priceAmount: row.price_amount ? Number(row.price_amount) : undefined,
   priceCurrency: row.price_currency,
   priceDisplay: row.price_display,
   recyclerName: row.recycler_name,
@@ -37,7 +43,28 @@ const rowToListing = (row: any): StoredListing => ({
   quoteUrl: row.quote_url,
   firstSeenAt: row.first_seen_at.toISOString(),
   lastSeenAt: row.last_seen_at.toISOString(),
-  raw: {} as CarPartListing,
+  raw: {
+    year: row.year,
+    makeModel: row.make_model,
+    part: row.part,
+    description: row.description,
+    damageCode: row.damage_code,
+    grade: row.grade,
+    stockNumber: row.stock_number,
+    price: {
+      amount: row.price_amount ? Number(row.price_amount) : undefined,
+      currency: row.price_currency,
+      display: row.price_display,
+    },
+    recycler: {
+      name: row.recycler_name,
+      location: row.recycler_location,
+      phone: row.recycler_phone,
+    },
+    imageUrl: row.image_url,
+    photoUrl: row.photo_url,
+    quoteUrl: row.quote_url,
+  } as CarPartListing,
 });
 
 export async function findListing(sql: Sql, source: string, sourceKey: string) {
@@ -52,8 +79,12 @@ export async function upsertListing(
   sql: Sql,
   next: NormalizedListing,
   observedAt: Date,
+  context?: { watchId?: string; runId?: string },
 ) {
-  const existing = await findListing(sql, next.source, next.sourceKey);
+  const existing =
+    (await sql`select * from listings where source=${next.source} and source_key=${next.sourceKey}`)[
+      0
+    ];
   const values = [
     next.sellerUserId ?? null,
     next.partSourceId ?? null,
@@ -88,10 +119,15 @@ export async function upsertListing(
     },${values[13]},${values[14]},${values[15]},${values[16]},${values[17]},${
       values[18]
     },${values[19]},${observedAt},${observedAt})`;
-    return { id, isNew: true, changedFields: [] as string[] };
+    return { id, isNew: true, changedFields: [] as string[], changes: [] as ListingFieldChange[] };
   }
-  const changedFields = (await import("../listing_normalizer.ts"))
-    .mutableChanges(existing, next);
+  const changes = detailedMutableChanges(existing, next);
+  const changedFields = changes.map((c) => c.field);
+  if (changes.length > 0 && context?.watchId) {
+    for (const change of changes) {
+      await sql`insert into listing_changes (id,listing_id,watch_id,search_run_id,field_name,old_value,new_value,created_at) values (${crypto.randomUUID()},${existing.id},${context.watchId},${context.runId ?? null},${change.field},${change.oldValue ?? null},${change.newValue ?? null},${observedAt})`;
+    }
+  }
   await sql`update listings set identity_method=${next.identityMethod},seller_user_id=${
     values[0]
   },part_source_id=${values[1]},part_guid=${values[2]},vehicle_guid=${
@@ -106,7 +142,7 @@ export async function upsertListing(
     values[17]
   },photo_url=${values[18]},quote_url=${values[19]
   },last_seen_at=${observedAt},updated_at=${observedAt} where id=${existing.id}`;
-  return { id: existing.id, isNew: false, changedFields };
+  return { id: existing.id, isNew: false, changedFields, changes };
 }
 
 export async function associateListing(
@@ -127,14 +163,40 @@ export async function associateListing(
   await sql`insert into watch_listings (watch_id,listing_id,first_seen_at,last_seen_at,first_search_run_id,last_search_run_id) values (${watchId},${listingId},${observedAt},${observedAt},${runId},${runId})`;
   return true;
 }
-export async function listWatchListings(watchId: string, limit = 50) {
+export async function listWatchListings(watchId: string, limit = 500) {
+  const sql = getDatabase();
   const rows =
-    await getDatabase()`select l.*, wl.first_seen_at as watch_first_seen_at, wl.last_seen_at as watch_last_seen_at from watch_listings wl join listings l on l.id=wl.listing_id where wl.watch_id=${watchId} order by wl.last_seen_at desc limit ${
+    await sql`select l.*, wl.first_seen_at as watch_first_seen_at, wl.last_seen_at as watch_last_seen_at from watch_listings wl join listings l on l.id=wl.listing_id where wl.watch_id=${watchId} order by wl.last_seen_at desc limit ${
       Math.min(Math.max(limit, 1), 1000)
     }`;
-  return rows.map((row: any) => ({
-    ...rowToListing(row),
-    firstSeenAt: row.watch_first_seen_at.toISOString(),
-    lastSeenAt: row.watch_last_seen_at.toISOString(),
-  }));
+  const listingIds = rows.map((r: any) => r.id);
+  const changesByListingId = new Map<string, ListingFieldChange[]>();
+  if (listingIds.length > 0) {
+    const changeRows = await sql`
+      select distinct on (listing_id, field_name) listing_id, field_name, old_value, new_value, created_at
+      from listing_changes
+      where listing_id in ${sql(listingIds)}
+        and watch_id = ${watchId}
+      order by listing_id, field_name, created_at desc
+    `;
+    for (const ch of changeRows) {
+      if (!changesByListingId.has(ch.listing_id)) changesByListingId.set(ch.listing_id, []);
+      changesByListingId.get(ch.listing_id)!.push({
+        field: ch.field_name,
+        oldValue: ch.old_value ?? undefined,
+        newValue: ch.new_value ?? undefined,
+      });
+    }
+  }
+
+  return rows.map((row: any) => {
+    const changes = changesByListingId.get(row.id) ?? [];
+    return {
+      ...rowToListing(row),
+      firstSeenAt: row.watch_first_seen_at?.toISOString() ?? row.first_seen_at.toISOString(),
+      lastSeenAt: row.watch_last_seen_at?.toISOString() ?? row.last_seen_at.toISOString(),
+      isModified: changes.length > 0,
+      changes,
+    };
+  });
 }

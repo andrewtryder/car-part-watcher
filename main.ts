@@ -140,6 +140,7 @@ export async function handleConsoleRequest(req: Request) {
           unread: url.searchParams.get("status") !== "all",
           watchId: url.searchParams.get("watchId") ?? undefined,
           limit: Number(url.searchParams.get("limit") ?? 50),
+          eventType: url.searchParams.get("type") ?? undefined,
         }),
       );
     }
