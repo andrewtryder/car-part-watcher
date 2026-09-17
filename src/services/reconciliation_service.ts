@@ -5,7 +5,7 @@ import { normalizeListing, type NormalizedListing } from "../listing_normalizer.
 import { associateListing, upsertListing } from "../repositories/listing_repository.ts";
 import { completeSearchRun, createSearchRun, failSearchRun, hasPreviousSuccessfulRun } from "../repositories/search_run_repository.ts";
 import { getWatch, type Watch } from "../repositories/watch_repository.ts";
-import { SpikeError } from "../types.ts";
+import { type SpikeResult, SpikeError } from "../types.ts";
 import { deduplicateNormalized, ListingIdentityCollisionError } from "../reconciliation.ts";
 import { createListingUpdatedEvent, createNewListingEvent } from "../repositories/notification_repository.ts";
 import { buildNotificationEventV1, processNotificationOutbox } from "./notification_service.ts";
@@ -17,6 +17,8 @@ export interface WatchRunSummary {
   newListings: NormalizedListing[];
 }
 
+
+import { executeSearchWithRetry } from "./search_retry.ts";
 
 function safeError(error: unknown) {
   if (error instanceof SpikeError) return { code: error.code, message: error.message };
@@ -30,6 +32,10 @@ export async function executeWatch(
     runType?: "manual" | "scheduled";
     scheduledKey?: string;
     scheduleSlot?: string;
+    searchRunner?: (watch: Watch) => Promise<SpikeResult>;
+    maxAttempts?: number;
+    backoffDelaysMs?: number[];
+    maxRunTimeMs?: number;
   } = {},
 ): Promise<WatchRunSummary | undefined> {
   const watch = await getWatch(watchId);
@@ -39,8 +45,16 @@ export async function executeWatch(
   const run = await createSearchRun(watch.id, options);
   if (!run) return undefined;
   const began = performance.now();
+  const search = options.searchRunner ??
+    ((w) => runCarPartSearch(new BrowserlessBrowserProvider(), w));
+
   try {
-    const result = await runCarPartSearch(new BrowserlessBrowserProvider(), watch);
+    const result = await executeSearchWithRetry(search, watch, {
+      maxAttempts: options.maxAttempts,
+      backoffDelaysMs: options.backoffDelaysMs,
+      maxRunTimeMs: options.maxRunTimeMs,
+    });
+
     const normalized = (await Promise.all(result.results.listings.map(normalizeListing))).filter((item): item is NormalizedListing => Boolean(item));
     const unique = new Map(deduplicateNormalized(normalized).map((listing) => [listing.sourceKey, listing]));
     if (!unique.size) throw new Error("No listings had a durable source identity");

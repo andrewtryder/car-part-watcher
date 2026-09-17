@@ -89,7 +89,8 @@ export type SpikeErrorCode =
   | "REMOTE_BROWSER_CREATE_FAILED"
   | "REMOTE_CDP_CONNECTION_FAILED"
   | "REMOTE_BROWSER_DISCONNECTED"
-  | "REMOTE_BROWSER_TIMEOUT";
+  | "REMOTE_BROWSER_TIMEOUT"
+  | "RUN_TIMEOUT";
 
 export class SpikeError extends Error {
   constructor(
