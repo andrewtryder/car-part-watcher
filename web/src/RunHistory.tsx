@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { recentRuns, type Run, system, type Watch, watches } from "./api.ts";
 
 type HistoryRun = Run & { watchId: string; watchName: string };
+
 const duration = (run: Run) => {
   if (!run.startedAt || !run.completedAt) return "—";
   const seconds = Math.max(
@@ -16,6 +17,7 @@ const duration = (run: Run) => {
     ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`
     : `${seconds}s`;
 };
+
 const date = (value: string | undefined, timezone: string) =>
   value
     ? new Intl.DateTimeFormat(undefined, {
@@ -27,13 +29,15 @@ const date = (value: string | undefined, timezone: string) =>
       minute: "2-digit",
     }).format(new Date(value))
     : "—";
+
 const label = (status: Run["status"]) =>
   status === "succeeded"
     ? "Succeeded"
     : status === "failed"
     ? "Failed"
     : "Running";
-const tone = (status: Run["status"]) =>
+
+const tone = (status: Run["status"]): "green" | "red" | "amber" | "blue" =>
   status === "succeeded" ? "green" : status === "failed" ? "red" : "amber";
 
 export function GlobalRunHistory() {
@@ -42,6 +46,7 @@ export function GlobalRunHistory() {
   const [watchItems, setWatchItems] = useState<Watch[]>([]);
   const [error, setError] = useState(false);
   const [timezone, setTimezone] = useState("America/New_York");
+
   const load = useCallback(async () => {
     setError(false);
     try {
@@ -50,6 +55,7 @@ export function GlobalRunHistory() {
       setError(true);
     }
   }, []);
+
   useEffect(() => {
     load();
     watches().then(setWatchItems).catch(() => undefined);
@@ -57,14 +63,17 @@ export function GlobalRunHistory() {
       undefined
     );
   }, [load]);
+
   const watchId = params.get("watch") ?? "";
   const status = params.get("status") ?? "";
   const runType = params.get("type") ?? "";
+
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     value ? next.set(key, value) : next.delete(key);
     setParams(next);
   };
+
   const watchOptions = useMemo(
     () =>
       watchItems.length
@@ -77,23 +86,29 @@ export function GlobalRunHistory() {
         ],
     [items, watchItems],
   );
+
   const filtered = (items ?? []).filter((item) =>
     (!watchId || item.watchId === watchId) &&
     (!status || item.status === status) &&
     (!runType || item.runType === runType)
   );
+
   return (
     <main>
       <header>
-        <div>
+        <div className="headerTitleGroup">
           <p className="eyebrow">OPERATIONS</p>
           <h1>Run History</h1>
+          <div className="status">
+            <span className="onlineDot" /> {timezone}
+          </div>
         </div>
-        <p className="muted">{timezone}</p>
       </header>
+
       <section className="panel filters" aria-label="Run history filters">
         <label>
-          Saved Search<select
+          Saved Search
+          <select
             value={watchId}
             onChange={(event) => update("watch", event.target.value)}
           >
@@ -104,7 +119,8 @@ export function GlobalRunHistory() {
           </select>
         </label>
         <label>
-          Status<select
+          Status
+          <select
             value={status}
             onChange={(event) => update("status", event.target.value)}
           >
@@ -115,7 +131,8 @@ export function GlobalRunHistory() {
           </select>
         </label>
         <label>
-          Run Type<select
+          Run Type
+          <select
             value={runType}
             onChange={(event) => update("type", event.target.value)}
           >
@@ -125,6 +142,7 @@ export function GlobalRunHistory() {
           </select>
         </label>
       </section>
+
       {error
         ? (
           <section className="state">
@@ -137,8 +155,8 @@ export function GlobalRunHistory() {
         : !filtered.length
         ? (
           <section className="empty">
-            <h2>No runs yet.</h2>
-            <p>Run a saved search to begin collecting history.</p>
+            <h2>No runs matching filters.</h2>
+            <p>Run a saved search or adjust filters to view activity.</p>
           </section>
         )
         : (
@@ -151,10 +169,10 @@ export function GlobalRunHistory() {
                   <th>Type</th>
                   <th>Status</th>
                   <th>Duration</th>
-                  <th>Pages</th>
                   <th>Results</th>
                   <th>New</th>
                   <th>Changed</th>
+                  <th>Pages</th>
                 </tr>
               </thead>
               <tbody>
@@ -162,7 +180,10 @@ export function GlobalRunHistory() {
                   <tr key={run.id}>
                     <td>{date(run.startedAt, timezone)}</td>
                     <td>
-                      <Link to={`/watches/${run.watchId}`}>
+                      <Link
+                        to={`/watches/${run.watchId}`}
+                        className="accentLink"
+                      >
                         {run.watchName}
                       </Link>
                     </td>
@@ -185,10 +206,10 @@ export function GlobalRunHistory() {
                       )}
                     </td>
                     <td>{duration(run)}</td>
-                    <td>{run.pagesFetched ?? "—"}</td>
                     <td>{run.listingCount ?? "—"}</td>
                     <td>{run.newListingCount ?? "—"}</td>
                     <td>{run.changedCount ?? "—"}</td>
+                    <td>{run.pagesFetched ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

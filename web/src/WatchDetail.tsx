@@ -20,10 +20,12 @@ const frequency: Record<number, string> = {
   2: "Twice daily",
   3: "Three times daily",
 };
+
 const draftFor = (value: Watch): WatchDraft => ({
   ...value,
   refinementLabel: value.refinement?.label,
 });
+
 const formatDate = (value: string | undefined, timezone: string) =>
   value
     ? new Intl.DateTimeFormat(undefined, {
@@ -35,6 +37,7 @@ const formatDate = (value: string | undefined, timezone: string) =>
       minute: "2-digit",
     }).format(new Date(value))
     : "Not available";
+
 const formatDuration = (run: Run) => {
   if (!run.startedAt || !run.completedAt) return "—";
   const seconds = Math.max(
@@ -48,12 +51,14 @@ const formatDuration = (run: Run) => {
     ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`
     : `${seconds}s`;
 };
+
 const statusLabel = (status: Run["status"]) =>
   status === "succeeded"
-    ? "Success"
+    ? "Succeeded"
     : status === "failed"
     ? "Failed"
     : "Running";
+
 const statusTone = (status: Run["status"]) =>
   status === "succeeded" ? "green" : status === "failed" ? "red" : "amber";
 
@@ -88,7 +93,7 @@ function Listings({
           <p className="eyebrow">RECENTLY SEEN</p>
           <h2>Recently Seen Parts</h2>
         </div>
-        <span className="muted">Most recent {items?.length ?? 0}</span>
+        <span className="muted">Showing recent {items?.length ?? 0}</span>
       </div>
       {loading
         ? (
@@ -103,7 +108,7 @@ function Listings({
           <section className="empty">
             <h3>No parts seen yet.</h3>
             <p>Run this saved search to establish its baseline.</p>
-            <button onClick={onRun}>Run Now</button>
+            <button onClick={onRun}>Run now</button>
           </section>
         )
         : (
@@ -111,24 +116,50 @@ function Listings({
             <table>
               <thead>
                 <tr>
+                  <th>Photo</th>
                   <th>Vehicle</th>
                   <th>Details</th>
                   <th>Price</th>
                   <th>Recycler</th>
-                  <th>Actions</th>
                   <th>First Seen</th>
                   <th>Last Seen</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      {[item.year, item.makeModel, item.part].filter(Boolean)
-                        .join(" ") || "Part"}
+                      {item.imageUrl
+                        ? (
+                          <a
+                            href={item.photoUrl || item.imageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="listingThumbLink"
+                          >
+                            <img
+                              src={item.imageUrl}
+                              alt="Part thumbnail"
+                              className="listingThumb"
+                              width="64"
+                              height="48"
+                            />
+                          </a>
+                        )
+                        : (
+                          <div className="listingThumbPlaceholder">
+                            No Photo
+                          </div>
+                        )}
                     </td>
                     <td>
-                      {item.imageUrl ? <a href={item.photoUrl || item.imageUrl} target="_blank" rel="noopener noreferrer"><img src={item.imageUrl} alt="Part thumbnail" width="64" height="48" /></a> : null}
+                      <strong>
+                        {[item.year, item.makeModel, item.part].filter(Boolean)
+                          .join(" ") || "Part"}
+                      </strong>
+                    </td>
+                    <td>
                       {[
                         item.description,
                         item.damageCode && `Damage: ${item.damageCode}`,
@@ -136,17 +167,50 @@ function Listings({
                         item.stockNumber && `Stock #${item.stockNumber}`,
                       ].filter(Boolean).map((text) => (
                         <div key={text}>{text}</div>
-                      )) || "—"}
+                      ))}
                     </td>
-                    <td>{item.priceDisplay || "—"}</td>
                     <td>
-                      {[item.recyclerName, item.recyclerLocation].filter(
-                        Boolean,
-                      ).join(" · ") || "—"}
+                      <strong>{item.priceDisplay || "—"}</strong>
                     </td>
-                    <td>{item.photoUrl ? <a href={item.photoUrl} target="_blank" rel="noopener noreferrer">Photos</a> : null}{item.photoUrl && item.quoteUrl ? " · " : null}{item.quoteUrl ? <a href={item.quoteUrl} target="_blank" rel="noopener noreferrer">Request Quote</a> : null}{!item.photoUrl && !item.quoteUrl ? "—" : null}</td>
+                    <td>
+                      <div>{item.recyclerName || "—"}</div>
+                      {item.recyclerLocation && (
+                        <small className="muted">{item.recyclerLocation}</small>
+                      )}
+                    </td>
                     <td>{formatDate(item.firstSeenAt, timezone)}</td>
                     <td>{formatDate(item.lastSeenAt, timezone)}</td>
+                    <td>
+                      {item.photoUrl || item.quoteUrl
+                        ? (
+                          <div className="accentLinks">
+                            {item.photoUrl && (
+                              <a
+                                href={item.photoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="accentLink"
+                              >
+                                Photos
+                              </a>
+                            )}
+                            {item.photoUrl && item.quoteUrl && (
+                              <span className="separator">·</span>
+                            )}
+                            {item.quoteUrl && (
+                              <a
+                                href={item.quoteUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="accentLink"
+                              >
+                                Request Quote
+                              </a>
+                            )}
+                          </div>
+                        )
+                        : <span className="muted">—</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -189,7 +253,7 @@ function RunHistory({
           <section className="empty">
             <h3>No runs yet.</h3>
             <p>Run this saved search to start collecting results.</p>
-            <button onClick={onRun}>Run Now</button>
+            <button onClick={onRun}>Run now</button>
           </section>
         )
         : (
@@ -201,10 +265,10 @@ function RunHistory({
                   <th>Type</th>
                   <th>Status</th>
                   <th>Duration</th>
-                  <th>Pages</th>
                   <th>Results</th>
                   <th>New</th>
                   <th>Changed</th>
+                  <th>Pages</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,10 +294,10 @@ function RunHistory({
                       )}
                     </td>
                     <td>{formatDuration(run)}</td>
-                    <td>{run.pagesFetched ?? "—"}</td>
                     <td>{run.listingCount ?? "—"}</td>
                     <td>{run.newListingCount ?? "—"}</td>
                     <td>{run.changedCount ?? "—"}</td>
+                    <td>{run.pagesFetched ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -256,6 +320,7 @@ export function WatchDetail() {
   const [runError, setRunError] = useState(false);
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string>();
+
   const loadWatch = useCallback(async () => {
     if (!id) return;
     setWatchError(undefined);
@@ -267,6 +332,7 @@ export function WatchDetail() {
       );
     }
   }, [id]);
+
   const loadListings = useCallback(async () => {
     if (!id) return;
     setListingError(false);
@@ -276,6 +342,7 @@ export function WatchDetail() {
       setListingError(true);
     }
   }, [id]);
+
   const loadRuns = useCallback(async () => {
     if (!id) return;
     setRunError(false);
@@ -285,15 +352,18 @@ export function WatchDetail() {
       setRunError(true);
     }
   }, [id]);
+
   const refresh = useCallback(async () => {
     await Promise.all([loadWatch(), loadListings(), loadRuns()]);
   }, [loadWatch, loadListings, loadRuns]);
+
   useEffect(() => {
     refresh();
     system().then((value) => setTimezone(value.timezone)).catch(() =>
       undefined
     );
   }, [refresh]);
+
   const execute = async () => {
     if (!id || running) return;
     setRunning(true);
@@ -315,6 +385,7 @@ export function WatchDetail() {
       setRunning(false);
     }
   };
+
   const toggle = async () => {
     if (!item || !id) return;
     try {
@@ -328,6 +399,7 @@ export function WatchDetail() {
       );
     }
   };
+
   const remove = async () => {
     if (
       !item || !id || !confirm(`Delete “${item.name}”? This cannot be undone.`)
@@ -343,6 +415,7 @@ export function WatchDetail() {
       );
     }
   };
+
   if (watchError) {
     return (
       <main className="detailPage">
@@ -364,6 +437,7 @@ export function WatchDetail() {
       </main>
     );
   }
+
   if (!item) {
     return (
       <main className="detailPage">
@@ -371,13 +445,15 @@ export function WatchDetail() {
       </main>
     );
   }
+
   const latest = runs?.[0];
   const lastSuccessful = runs?.find((run) => run.status === "succeeded");
+
   return (
     <main className="detailPage">
-      <Link to="/watches">← Saved Searches</Link>
+      <Link className="backLink" to="/watches">← Saved Searches</Link>
       <header className="detailHeader">
-        <div>
+        <div className="headerTitleGroup">
           <p className="eyebrow">SAVED SEARCH</p>
           <h1>{item.name}</h1>
           <p className="criteria">
@@ -391,7 +467,7 @@ export function WatchDetail() {
             <span className={`badge ${item.enabled ? "green" : "slate"}`}>
               {item.enabled ? "Enabled" : "Disabled"}
             </span>
-            <span className="badge">
+            <span className={`badge ${item.scheduleEnabled ? "blue" : "slate"}`}>
               {item.scheduleEnabled ? "Scheduled" : "Unscheduled"}
             </span>
             {item.scheduleEnabled && (
@@ -400,58 +476,78 @@ export function WatchDetail() {
           </div>
           <p className="muted">Timezone: {timezone}</p>
         </div>
+
         <div className="detailActions">
           <button onClick={execute} disabled={running}>
-            {running ? "Running search…" : "Run Now"}
+            {running ? "Running search…" : "Run now"}
           </button>
-          <Link to={`/watches/${item.id}/edit`}>Edit</Link>
-          <Link to={`/new-parts?watchId=${item.id}`}>View New Parts</Link>
+          <Link className="buttonLink quiet" to={`/watches/${item.id}/edit`}>
+            Edit
+          </Link>
+          <Link
+            className="buttonLink quiet"
+            to={`/new-parts?watchId=${item.id}`}
+          >
+            View new parts
+          </Link>
           <button className="quiet" onClick={toggle}>
             {item.enabled ? "Disable" : "Enable"}
           </button>
           <button className="danger" onClick={remove}>Delete</button>
         </div>
       </header>
+
       {message && <p className="notice">{message}</p>}
       {!item.enabled && (
         <p className="notice">
           Automatic runs are disabled. You can still run this search manually.
         </p>
       )}
+
       <section className="stats detailStats">
         <article className="stat">
-          <p>Last Run</p>
+          <p className="eyebrow">Last Run</p>
           <strong>
             {latest ? formatDate(latest.startedAt, timezone) : "Not run yet"}
           </strong>
-          <small>{latest ? statusLabel(latest.status) : ""}</small>
+          {latest && (
+            <div className="statMeta">
+              <span className={`badge ${statusTone(latest.status)}`}>
+                {statusLabel(latest.status)}
+              </span>
+            </div>
+          )}
         </article>
         <article className="stat">
-          <p>Last Successful Run</p>
+          <p className="eyebrow">Last Successful</p>
           <strong>
             {lastSuccessful
               ? formatDate(lastSuccessful.startedAt, timezone)
               : "Not yet"}
           </strong>
+          {lastSuccessful && (
+            <small className="muted">
+              {formatDuration(lastSuccessful)} duration
+            </small>
+          )}
         </article>
         <article className="stat">
-          <p>Recently Seen</p>
-          <strong>{listings?.length ?? "—"}</strong>
-          <small>Bounded recent list</small>
+          <p className="eyebrow">Recently Seen Count</p>
+          <strong>{listings?.length ?? "0"}</strong>
+          <small className="muted">Bounded recent list</small>
         </article>
-        {latest && (
-          <>
-            <article className="stat">
-              <p>New on Last Run</p>
-              <strong>{latest.newListingCount ?? "—"}</strong>
-            </article>
-            <article className="stat">
-              <p>Changed on Last Run</p>
-              <strong>{latest.changedCount ?? "—"}</strong>
-            </article>
-          </>
-        )}
+        <article className="stat">
+          <p className="eyebrow">New on Last Run</p>
+          <strong>{latest?.newListingCount ?? "—"}</strong>
+          <small className="muted">Fresh discoveries</small>
+        </article>
+        <article className="stat">
+          <p className="eyebrow">Changed on Last Run</p>
+          <strong>{latest?.changedCount ?? "—"}</strong>
+          <small className="muted">Price/status changes</small>
+        </article>
       </section>
+
       <Listings
         items={listings}
         loading={!listings && !listingError}
@@ -460,6 +556,7 @@ export function WatchDetail() {
         onRun={execute}
         retry={loadListings}
       />
+
       <RunHistory
         runs={runs}
         loading={!runs && !runError}
