@@ -19,6 +19,7 @@ const date = (value: string, timezone: string) =>
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(value));
+
 const joined = (...parts: Array<string | undefined>) =>
   parts.filter(Boolean).join(" · ");
 
@@ -33,6 +34,7 @@ export function Inbox() {
   const [timezone, setTimezone] = useState("America/New_York");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState<string>();
+
   const load = useCallback(async () => {
     setError(undefined);
     try {
@@ -43,6 +45,7 @@ export function Inbox() {
       );
     }
   }, [all, watchId]);
+
   useEffect(() => {
     load();
     watches().then(setWatchItems).catch(() => undefined);
@@ -50,11 +53,13 @@ export function Inbox() {
       undefined
     );
   }, [load]);
+
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     value ? next.set(key, value) : next.delete(key);
     setParams(next);
   };
+
   const markOne = async (id: string) => {
     setBusy(id);
     try {
@@ -69,6 +74,7 @@ export function Inbox() {
       setBusy(undefined);
     }
   };
+
   const markAll = async () => {
     setBusy("all");
     try {
@@ -85,42 +91,48 @@ export function Inbox() {
       setBusy(undefined);
     }
   };
+
   return (
     <main className="inbox">
       <header>
-        <div>
+        <div className="headerTitleGroup">
           <p className="eyebrow">NOTIFICATIONS</p>
           <h1>New Parts</h1>
           <p className="muted">
             {data
               ? data.unreadCount
-                ? `${data.unreadCount} unread`
+                ? `${data.unreadCount} unread notification${
+                  data.unreadCount === 1 ? "" : "s"
+                }`
                 : "No unread parts"
               : "Loading unread count…"}
           </p>
         </div>
         {data?.unreadCount
           ? (
-            <button disabled={busy === "all"} onClick={markAll}>
-              {busy === "all"
-                ? "Marking read…"
-                : watchId
-                ? "Mark All Read for This Search"
-                : "Mark All Read"}
-            </button>
+            <div className="headerActions">
+              <button disabled={busy === "all"} onClick={markAll}>
+                {busy === "all"
+                  ? "Marking read…"
+                  : watchId
+                  ? "Mark all read for this search"
+                  : "Mark all read"}
+              </button>
+            </div>
           )
           : null}
       </header>
+
       <section className="panel inboxControls">
         <div className="tabs" aria-label="Notification status">
           <button
-            className={!all ? "activeTab" : "quiet"}
+            className={!all ? "activeTab" : ""}
             onClick={() => update("status", "")}
           >
             Unread
           </button>
           <button
-            className={all ? "activeTab" : "quiet"}
+            className={all ? "activeTab" : ""}
             onClick={() => update("status", "all")}
           >
             All
@@ -139,6 +151,7 @@ export function Inbox() {
           </select>
         </label>
       </section>
+
       {error
         ? (
           <section className="state">
@@ -152,11 +165,11 @@ export function Inbox() {
         : !data.items.length
         ? (
           <section className="empty">
-            <h2>{all ? "No parts yet" : "You’re all caught up"}</h2>
+            <h2>{all ? "No parts recorded" : "You’re all caught up"}</h2>
             <p>
               {all
-                ? "New parts will appear here after a saved search finds them."
-                : "No unread parts."}
+                ? "New parts will appear here after a saved search runs and finds matches."
+                : "No unread notifications right now."}
             </p>
           </section>
         )
@@ -177,51 +190,115 @@ export function Inbox() {
                     >
                       {event.readAt ? "Read" : "NEW"}
                     </span>
-                    <small>
-                      {event.readAt
-                        ? "Read notification"
-                        : "Unread notification"}
+                    <small className="muted">
+                      Found {date(event.createdAt, timezone)}
                     </small>
                   </div>
-                  <h2>{listing.title}</h2>
-                  {(listing.description || listing.grade ||
-                    listing.stockNumber || listing.price) && (
-                    <p className="criteria">
-                      {joined(
-                        listing.price,
-                        listing.grade && `Grade ${listing.grade}`,
-                        listing.stockNumber && `Stock #${listing.stockNumber}`,
-                        listing.description,
+
+                  <div className="notificationMediaRow">
+                    {listing.imageUrl
+                      ? (
+                        <a
+                          href={listing.photoUrl || listing.imageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="listingThumbLink"
+                        >
+                          <img
+                            src={listing.imageUrl}
+                            alt={listing.title}
+                            className="listingThumb"
+                            width="64"
+                            height="48"
+                          />
+                        </a>
+                      )
+                      : <div className="listingThumbPlaceholder">No Photo</div>}
+
+                    <div className="notificationBody">
+                      <h2>{listing.title}</h2>
+                      {(listing.description || listing.grade ||
+                        listing.stockNumber || listing.price ||
+                        listing.damageCode) && (
+                        <p className="criteria">
+                          {joined(
+                            listing.price,
+                            listing.grade && `Grade ${listing.grade}`,
+                            listing.damageCode && `Damage ${listing.damageCode}`,
+                            listing.stockNumber &&
+                              `Stock #${listing.stockNumber}`,
+                            listing.description,
+                          )}
+                        </p>
                       )}
-                    </p>
-                  )}
-                  {(listing.recyclerName || listing.location) && (
-                    <p>
-                      {listing.recyclerName && (
-                        <strong>{listing.recyclerName}</strong>
+                      {(listing.recyclerName || listing.location) && (
+                        <p>
+                          {listing.recyclerName && (
+                            <strong>{listing.recyclerName}</strong>
+                          )}
+                          {listing.recyclerName && listing.location ? " · " : ""}
+                          {listing.location}
+                        </p>
                       )}
-                      {listing.recyclerName && listing.location ? " · " : ""}
-                      {listing.location}
-                    </p>
-                  )}
-                  <p className="muted">
-                    Saved search:{" "}
-                    <Link to={`/watches/${event.watchId}`}>
-                      {event.payload.watch.name}
-                    </Link>
-                    {" · "}Found {date(event.createdAt, timezone)}
-                  </p>
-                  <div className="actions">
-                    <Link to={`/watches/${event.watchId}`}>
-                      View Saved Search
-                    </Link>
+                      <p className="muted">
+                        Saved search:{" "}
+                        <Link
+                          to={`/watches/${event.watchId}`}
+                          className="accentLink"
+                        >
+                          {event.payload.watch.name}
+                        </Link>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="notificationFooter">
+                    <div className="accentLinks">
+                      {listing.photoUrl
+                        ? (
+                          <a
+                            href={listing.photoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="accentLink"
+                          >
+                            Photos
+                          </a>
+                        )
+                        : null}
+                      {listing.photoUrl && listing.quoteUrl && (
+                        <span className="separator">·</span>
+                      )}
+                      {listing.quoteUrl
+                        ? (
+                          <a
+                            href={listing.quoteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="accentLink"
+                          >
+                            Request Quote
+                          </a>
+                        )
+                        : null}
+                      {(listing.photoUrl || listing.quoteUrl) && (
+                        <span className="separator">·</span>
+                      )}
+                      <Link
+                        to={`/watches/${event.watchId}`}
+                        className="accentLink"
+                      >
+                        View saved search
+                      </Link>
+                    </div>
+
                     {!event.readAt && (
                       <button
                         className="quiet"
                         disabled={busy === event.id}
                         onClick={() => markOne(event.id)}
                       >
-                        {busy === event.id ? "Marking read…" : "Mark Read"}
+                        {busy === event.id ? "Marking read…" : "Mark read"}
                       </button>
                     )}
                   </div>

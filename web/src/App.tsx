@@ -3,6 +3,7 @@ import {
   Bell,
   Clock3,
   LayoutDashboard,
+  Play,
   RefreshCw,
   Search,
   Wrench,
@@ -33,6 +34,7 @@ const frequency = (value: number) =>
     : value === 2
     ? "Twice daily"
     : "Three times daily";
+
 const time = (value: string | undefined, zone: string) =>
   value
     ? new Intl.DateTimeFormat(undefined, {
@@ -43,6 +45,7 @@ const time = (value: string | undefined, zone: string) =>
       minute: "2-digit",
     }).format(new Date(value))
     : "Not run yet";
+
 const duration = (run: { startedAt?: string; completedAt?: string }) =>
   run.startedAt && run.completedAt
     ? `${
@@ -55,6 +58,7 @@ const duration = (run: { startedAt?: string; completedAt?: string }) =>
       )
     }s`
     : "—";
+
 function Badge(
   { children, tone = "slate" }: {
     children: React.ReactNode;
@@ -63,27 +67,36 @@ function Badge(
 ) {
   return <span className={`badge ${tone}`}>{children}</span>;
 }
+
 function Stat(
-  { label, value, detail }: {
+  { label, value, detail, tone }: {
     label: string;
     value: string | number;
-    detail?: string;
+    detail?: React.ReactNode;
+    tone?: "slate" | "green" | "amber" | "red" | "blue";
   },
 ) {
   return (
     <section className="stat">
-      <p>{label}</p>
+      <p className="eyebrow">{label}</p>
       <strong>{value}</strong>
-      {detail && <small>{detail}</small>}
+      {detail && (
+        <div className="statMeta">
+          {tone ? <Badge tone={tone}>{detail}</Badge> : <small>{detail}</small>}
+        </div>
+      )}
     </section>
   );
 }
+
 export function DashboardPage() {
   const [data, setData] = useState<Dashboard>();
   const [error, setError] = useState<string>();
   const [running, setRunning] = useState<string>();
+  const [runningAll, setRunningAll] = useState(false);
   const [message, setMessage] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
+
   const load = useCallback(async () => {
     setError(undefined);
     try {
@@ -92,9 +105,11 @@ export function DashboardPage() {
       setError(e instanceof Error ? e.message : "Could not load dashboard");
     }
   }, []);
+
   useEffect(() => {
     load();
   }, [load]);
+
   const execute = async (id: string) => {
     setRunning(id);
     setMessage(undefined);
@@ -113,6 +128,39 @@ export function DashboardPage() {
       setRunning(undefined);
     }
   };
+
+  const runAllDue = async () => {
+    if (!data?.watches.length || runningAll) return;
+    setRunningAll(true);
+    setMessage("Running due searches…");
+    const enabledWatches = data.watches.filter((w) => w.enabled);
+    const targets = enabledWatches.length ? enabledWatches : data.watches;
+    let totalNew = 0;
+    let totalResults = 0;
+    try {
+      for (const target of targets) {
+        try {
+          const res = await runWatch(target.id);
+          totalResults += res.listingCount ?? 0;
+          totalNew += res.newListingCount ?? 0;
+        } catch {
+          // continue with remaining watches
+        }
+      }
+      setMessage(
+        `Completed running ${targets.length} search${
+          targets.length === 1 ? "" : "es"
+        }: ${totalResults} results · ${totalNew} new listings`,
+      );
+      await load();
+      refreshUnreadCount();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Run all due failed");
+    } finally {
+      setRunningAll(false);
+    }
+  };
+
   const refresh = async () => {
     setRefreshing(true);
     try {
@@ -124,17 +172,38 @@ export function DashboardPage() {
       setRefreshing(false);
     }
   };
+
+  const lastRunTone = (status?: string): "green" | "red" | "amber" | "slate" => {
+    if (!status) return "slate";
+    if (status.toLowerCase().includes("succeed") || status.toLowerCase().includes("ok")) {
+      return "green";
+    }
+    if (status.toLowerCase().includes("fail") || status.toLowerCase().includes("error")) {
+      return "red";
+    }
+    return "amber";
+  };
+
   return (
     <main>
       <header>
-        <div>
+        <div className="headerTitleGroup">
           <p className="eyebrow">OPERATIONS</p>
           <h1>Dashboard</h1>
+          <div className="status">
+            <span className="onlineDot" /> {data?.timezone ?? "Loading timezone…"}
+          </div>
         </div>
-        <div className="status">
-          <span /> {data?.timezone ?? "Loading timezone…"}
+        <div className="headerActions">
+          <button
+            onClick={runAllDue}
+            disabled={runningAll || !data?.watches?.length}
+          >
+            <Play size={14} /> {runningAll ? "Running searches…" : "Run all due"}
+          </button>
         </div>
       </header>
+
       {error
         ? (
           <section className="state">
@@ -148,24 +217,40 @@ export function DashboardPage() {
         : (
           <>
             <div className="stats">
+              <Stat
+                label="Active Searches"
+                value={data.summary.activeWatchCount}
+                detail="Enabled searches"
+              />
               <Link className="statLink" to="/new-parts">
                 <Stat
                   label="New Parts"
                   value={data.summary.newPartCount}
-                  detail="Unread new-part events"
+                  detail="Unread part events"
+                  tone={data.summary.newPartCount > 0 ? "blue" : undefined}
                 />
               </Link>
               <Stat
-                label="Active Watches"
-                value={data.summary.activeWatchCount}
+                label="Pending Notifications"
+                value={data.summary.pendingNotificationCount}
+                detail="Queued events"
+              />
+              <Stat
+                label="Failed Notifications"
+                value={data.summary.failedNotificationCount}
+                detail="Delivery failures"
+                tone={data.summary.failedNotificationCount > 0 ? "red" : undefined}
               />
               <Stat
                 label="Last Run"
                 value={time(data.summary.lastRunAt, data.timezone)}
                 detail={data.summary.lastRunStatus ?? "No runs yet"}
+                tone={lastRunTone(data.summary.lastRunStatus)}
               />
             </div>
+
             {message && <p className="notice" aria-live="polite">{message}</p>}
+
             <section className="section">
               <div className="sectionHead">
                 <div>
@@ -179,7 +264,9 @@ export function DashboardPage() {
                     <Search size={28} />
                     <h3>No saved searches yet</h3>
                     <p>Create a saved search to start watching for parts.</p>
-                    <small>Saved Search editor coming next.</small>
+                    <Link className="buttonLink" to="/watches/new">
+                      Create saved search
+                    </Link>
                   </div>
                 )
                 : (
@@ -190,8 +277,7 @@ export function DashboardPage() {
                           <div>
                             <h3>{watch.name}</h3>
                             <p>
-                              {watch.criteria.year} {watch.criteria.makeModel} ·
-                              {" "}
+                              {watch.criteria.year} {watch.criteria.makeModel} ·{" "}
                               {watch.criteria.part}
                             </p>
                           </div>
@@ -212,7 +298,7 @@ export function DashboardPage() {
                                 {frequency(watch.schedule.frequency)}
                               </Badge>
                             )
-                            : <Badge>Not scheduled</Badge>}
+                            : <Badge tone="slate">Not scheduled</Badge>}
                           {(watch.lastRun?.newListingCount ?? 0) > 0 && (
                             <Badge tone="amber">
                               {watch.lastRun!.newListingCount} New
@@ -235,21 +321,24 @@ export function DashboardPage() {
                             <dd>{watch.lastRun?.changedCount ?? "—"}</dd>
                           </div>
                         </dl>
-                        <div className="actions">
-                          <button
-                            disabled={running === watch.id}
-                            onClick={() =>
-                              execute(watch.id)}
-                          >
-                            {running === watch.id
-                              ? "Running search…"
-                              : "Run Now"}
-                          </button>
+                        <div className="actions cardActions">
                           <Link
-                            className="quiet buttonLink"
+                            className="buttonLink quiet"
                             to={`/watches/${watch.id}`}
                           >
-                            View
+                            Open
+                          </Link>
+                          <button
+                            disabled={running === watch.id}
+                            onClick={() => execute(watch.id)}
+                          >
+                            {running === watch.id ? "Running…" : "Run"}
+                          </button>
+                          <Link
+                            className="buttonLink quiet"
+                            to={`/watches/${watch.id}/edit`}
+                          >
+                            Edit
                           </Link>
                         </div>
                       </article>
@@ -257,12 +346,13 @@ export function DashboardPage() {
                   </div>
                 )}
             </section>
+
             <section className="twoCol">
               <article className="panel">
                 <div className="sectionHead">
                   <div>
                     <p className="eyebrow">RECENT RUNS</p>
-                    <h2>Latest activity</h2>
+                    <h2>Recent activity</h2>
                   </div>
                 </div>
                 {data.recentRuns.length
@@ -271,25 +361,30 @@ export function DashboardPage() {
                       <table>
                         <thead>
                           <tr>
-                            <th>Watch</th>
                             <th>Started</th>
+                            <th>Watch</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Duration</th>
                             <th>Results</th>
                             <th>New</th>
-                            <th>Status</th>
                           </tr>
                         </thead>
                         <tbody>
                           {data.recentRuns.map((run) => (
                             <tr key={run.id}>
-                              <td>
-                                {run.watchName}
-                                <small>
-                                  {run.runType ?? "manual"} · {duration(run)}
-                                </small>
-                              </td>
                               <td>{time(run.startedAt, data.timezone)}</td>
-                              <td>{run.listingCount ?? "—"}</td>
-                              <td>{run.newListingCount ?? "—"}</td>
+                              <td>
+                                <Link
+                                  to={`/watches/${run.watchId}`}
+                                  className="accentLink"
+                                >
+                                  {run.watchName}
+                                </Link>
+                              </td>
+                              <td>
+                                {run.runType === "scheduled" ? "Scheduled" : "Manual"}
+                              </td>
                               <td>
                                 <Badge
                                   tone={run.status === "succeeded"
@@ -301,6 +396,9 @@ export function DashboardPage() {
                                   {run.status}
                                 </Badge>
                               </td>
+                              <td>{duration(run)}</td>
+                              <td>{run.listingCount ?? "—"}</td>
+                              <td>{run.newListingCount ?? "—"}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -309,6 +407,7 @@ export function DashboardPage() {
                   )
                   : <p className="muted">No runs recorded yet.</p>}
               </article>
+
               <article className="panel catalog">
                 <div className="sectionHead">
                   <div>
@@ -330,7 +429,7 @@ export function DashboardPage() {
                 {data.catalog
                   ? (
                     <>
-                      <p>
+                      <p className="muted">
                         Last refreshed{" "}
                         {time(data.catalog.fetchedAt, data.timezone)}
                       </p>
@@ -355,10 +454,6 @@ export function DashboardPage() {
                       Catalog has not been initialized.
                     </p>
                   )}
-                <p className="muted">
-                  {data.summary.pendingNotificationCount} pending events ·{" "}
-                  {data.summary.failedNotificationCount} failed events
-                </p>
               </article>
             </section>
           </>
@@ -370,11 +465,13 @@ export function DashboardPage() {
 function ConsoleNav() {
   const location = useLocation();
   const [unread, setUnread] = useState<number>();
+
   const loadUnread = useCallback(() => {
     notifications().then((value) => setUnread(value.unreadCount)).catch(() =>
       undefined
     );
   }, []);
+
   useEffect(() => {
     loadUnread();
     globalThis.addEventListener("new-parts-count-changed", loadUnread);
@@ -384,26 +481,32 @@ function ConsoleNav() {
       clearInterval(timer);
     };
   }, [loadUnread]);
+
   const active = (path: string) =>
     location.pathname === path ||
     (path === "/watches" && location.pathname.startsWith("/watches"));
+
   return (
     <aside>
       <div className="brand">
-        <Wrench size={20} /> Car Part Watcher
+        <Wrench size={22} className="brandIcon" />
+        <div>
+          <div className="brandTitle">Car Part Watcher</div>
+          <div className="brandTagline">Ops console</div>
+        </div>
       </div>
       <nav>
         <Link className={active("/") ? "active" : ""} to="/">
-          <LayoutDashboard size={18} />Dashboard
+          <LayoutDashboard size={18} /> Dashboard
         </Link>
         <Link className={active("/watches") ? "active" : ""} to="/watches">
-          <Search size={18} />Saved Searches
+          <Search size={18} /> Saved Searches
         </Link>
         <Link className={active("/new-parts") ? "active" : ""} to="/new-parts">
-          <Bell size={18} />New Parts <em>{unread ?? "…"}</em>
+          <Bell size={18} /> New Parts <em>{unread ?? "0"}</em>
         </Link>
         <Link className={active("/runs") ? "active" : ""} to="/runs">
-          <Clock3 size={18} />Run History
+          <Clock3 size={18} /> Run History
         </Link>
       </nav>
     </aside>

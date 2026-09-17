@@ -22,6 +22,7 @@ const frequencies: Record<number, string> = {
   2: "Twice daily",
   3: "Three times daily",
 };
+
 const emptyDraft: WatchDraft = {
   name: "",
   enabled: true,
@@ -35,6 +36,7 @@ const emptyDraft: WatchDraft = {
   runFrequency: 1,
   notifyOnInitialRun: false,
 };
+
 const optionValue = (option: SelectOption) => option.value || option.label;
 const inputValue = (options: SelectOption[], value: string) =>
   options.find((option) => option.value === value)?.label ?? value;
@@ -62,6 +64,7 @@ function SearchSelect({
     )
       .slice(0, 80);
   }, [options, value]);
+
   return (
     <label htmlFor={id}>
       {label}
@@ -97,6 +100,7 @@ function payload(draft: WatchDraft): WatchDraft {
     runFrequency: draft.runFrequency || 1,
   };
 }
+
 function fromWatch(value: Watch): WatchDraft {
   return { ...value, refinementLabel: value.refinement?.label };
 }
@@ -104,7 +108,9 @@ function fromWatch(value: Watch): WatchDraft {
 export function WatchList() {
   const [items, setItems] = useState<Watch[]>();
   const [lastRuns, setLastRuns] = useState<Record<string, string>>({});
+  const [running, setRunning] = useState<string>();
   const [message, setMessage] = useState<string>();
+
   const load = async () => {
     try {
       const [loaded, board] = await Promise.all([watches(), dashboard()]);
@@ -122,9 +128,11 @@ export function WatchList() {
       );
     }
   };
+
   useEffect(() => {
     load();
   }, []);
+
   const update = async (item: Watch, changes: Partial<WatchDraft>) => {
     try {
       await saveWatch({ ...fromWatch(item), ...changes }, item.id);
@@ -135,6 +143,7 @@ export function WatchList() {
       );
     }
   };
+
   const remove = async (item: Watch) => {
     if (!confirm(`Delete “${item.name}”? This cannot be undone.`)) return;
     try {
@@ -148,34 +157,49 @@ export function WatchList() {
       );
     }
   };
+
   const execute = async (item: Watch) => {
+    setRunning(item.id);
     setMessage(`Running ${item.name}…`);
     try {
       const result = await runWatch(item.id);
-      setMessage(`${item.name}: ${result.newListingCount ?? 0} new listings.`);
+      setMessage(
+        `${item.name}: ${result.listingCount ?? 0} results · ${
+          result.newListingCount ?? 0
+        } new · ${result.changedCount ?? 0} changed`,
+      );
       await load();
       refreshUnreadCount();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Run failed");
+    } finally {
+      setRunning(undefined);
     }
   };
+
   return (
     <main>
       <header>
-        <div>
+        <div className="headerTitleGroup">
           <p className="eyebrow">SAVED SEARCHES</p>
           <h1>Saved Searches</h1>
         </div>
-        <Link className="buttonLink" to="/watches/new">New saved search</Link>
+        <div className="headerActions">
+          <Link className="buttonLink" to="/watches/new">
+            New saved search
+          </Link>
+        </div>
       </header>
+
       {message && <p className="notice">{message}</p>}
+
       {!items
         ? <p className="muted">Loading saved searches…</p>
         : items.length === 0
         ? (
           <section className="empty">
             <h2>No saved searches yet</h2>
-            <p>Create one to begin tracking parts.</p>
+            <p>Create one to begin tracking parts across recyclers.</p>
             <Link className="buttonLink" to="/watches/new">
               Create saved search
             </Link>
@@ -186,49 +210,80 @@ export function WatchList() {
             {items.map((item) => (
               <article className="watch" key={item.id}>
                 <div className="watchTop">
-                  <h2>{item.name}</h2>
+                  <div>
+                    <h3>{item.name}</h3>
+                    <p>
+                      {[item.year, item.makeModel, item.part].filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
                   <span className={`badge ${item.enabled ? "green" : "slate"}`}>
-                    {item.enabled ? "Enabled" : "Paused"}
+                    {item.enabled ? "Enabled" : "Disabled"}
                   </span>
                 </div>
+
                 <p className="criteria">
-                  {item.year} · {item.makeModel} · {item.part}
+                  {[
+                    item.location || "Any location",
+                    item.refinement?.label,
+                  ].filter(Boolean).join(" · ")}
                 </p>
+
+                <div className="badges">
+                  <span className={`badge ${item.scheduleEnabled ? "blue" : "slate"}`}>
+                    {item.scheduleEnabled
+                      ? frequencies[item.runFrequency]
+                      : "Not scheduled"}
+                  </span>
+                  {item.refinement?.label && (
+                    <span className="badge slate">{item.refinement.label}</span>
+                  )}
+                </div>
+
                 <dl>
                   <div>
                     <dt>Location</dt>
                     <dd>{item.location || "Any"}</dd>
                   </div>
                   <div>
-                    <dt>Refinement</dt>
-                    <dd>{item.refinement?.label || "None"}</dd>
-                  </div>
-                  <div>
                     <dt>Schedule</dt>
                     <dd>
                       {item.scheduleEnabled
                         ? frequencies[item.runFrequency]
-                        : frequencies[0]}
+                        : "Manual"}
                     </dd>
                   </div>
                   <div>
                     <dt>Last run</dt>
                     <dd>
                       {lastRuns[item.id]
-                        ? new Date(lastRuns[item.id]).toLocaleString()
+                        ? new Intl.DateTimeFormat(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        }).format(new Date(lastRuns[item.id]))
                         : "Not run yet"}
                     </dd>
                   </div>
                 </dl>
-                <div className="actions">
-                  <Link to={`/watches/${item.id}`}>View</Link>
+
+                <div className="actions cardActions">
+                  <Link className="buttonLink quiet" to={`/watches/${item.id}`}>
+                    Open
+                  </Link>
+                  <Link
+                    className="buttonLink quiet"
+                    to={`/watches/${item.id}/edit`}
+                  >
+                    Edit
+                  </Link>
                   <button
-                    className="quiet"
+                    disabled={running === item.id}
                     onClick={() => execute(item)}
                   >
-                    Run now
+                    {running === item.id ? "Running…" : "Run"}
                   </button>
-                  <Link to={`/watches/${item.id}/edit`}>Edit</Link>
                   <button
                     className="quiet"
                     onClick={() => update(item, { enabled: !item.enabled })}
@@ -262,6 +317,7 @@ export function WatchForm() {
     id ? [] : undefined,
   );
   const [error, setError] = useState<string>();
+
   useEffect(() => {
     Promise.all([catalog(), id ? watch(id) : Promise.resolve(undefined)]).then(
       ([loaded, existing]) => {
@@ -273,9 +329,11 @@ export function WatchForm() {
     )
       .finally(() => setLoading(false));
   }, [id]);
+
   const set = (key: keyof WatchDraft, value: string | boolean | number) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
+
   const changedCriteria = (key: keyof WatchDraft, value: string) => {
     setDraft((current) => ({
       ...current,
@@ -284,6 +342,7 @@ export function WatchForm() {
     }));
     setRefinements(undefined);
   };
+
   const validate = () => {
     if (
       !draft.name.trim() || !draft.year || !draft.makeModel || !draft.part ||
@@ -294,6 +353,7 @@ export function WatchForm() {
     }
     return undefined;
   };
+
   const continueToRefinement = async () => {
     const validation = validate();
     if (validation) return setError(validation);
@@ -310,6 +370,7 @@ export function WatchForm() {
       );
     }
   };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const validation = validate();
@@ -327,32 +388,43 @@ export function WatchForm() {
       );
     }
   };
+
   if (loading || !options) {
     return (
-      <main>
+      <main className="formPage">
         <p className="muted">Loading saved search…</p>
       </main>
     );
   }
+
   return (
     <main className="formPage">
-      <Link to="/watches">← Saved Searches</Link>
+      <Link className="backLink" to={id ? `/watches/${id}` : "/watches"}>
+        ← {id ? "Back to Saved Search" : "Back to Saved Searches"}
+      </Link>
       <header>
         <div>
           <p className="eyebrow">{id ? "EDIT" : "NEW"} SAVED SEARCH</p>
           <h1>{id ? "Edit Saved Search" : "New Saved Search"}</h1>
         </div>
       </header>
+
       <form className="panel form" onSubmit={submit}>
         {error && <p className="notice error">{error}</p>}
+
+        <div className="formSectionTitle">Search Criteria</div>
+
         <label>
-          Name<input
+          Watch Name
+          <input
             value={draft.name}
             onChange={(event) => set("name", event.target.value)}
+            placeholder="e.g. 2008 Honda Civic Alternator"
             required
           />
         </label>
-        <div className="twoCol">
+
+        <div className="twoCol" style={{ marginTop: 0 }}>
           <SearchSelect
             id="year"
             label="Year"
@@ -363,7 +435,7 @@ export function WatchForm() {
           />
           <SearchSelect
             id="make-model"
-            label="Make / model"
+            label="Make / Model"
             value={draft.makeModel}
             options={options.makeModels}
             onChange={(value) => changedCriteria("makeModel", value)}
@@ -385,14 +457,16 @@ export function WatchForm() {
             onChange={(value) => changedCriteria("location", value)}
           />
         </div>
-        <div className="twoCol">
+
+        <div className="twoCol" style={{ marginTop: 0 }}>
           <label>
-            Sort<select
+            Sort
+            <select
               value={draft.sort}
               onChange={(event) => changedCriteria("sort", event.target.value)}
               required
             >
-              <option value="">Select sort</option>
+              <option value="">Select sort order</option>
               {options.sorts.map((option) => (
                 <option key={option.value} value={optionValue(option)}>
                   {option.label}
@@ -402,25 +476,23 @@ export function WatchForm() {
           </label>
           {draft.sort === "zip" && (
             <label>
-              Postal code<input
+              Postal Code
+              <input
                 value={draft.postalCode ?? ""}
                 onChange={(event) =>
                   changedCriteria("postalCode", event.target.value)}
+                placeholder="ZIP / Postal code"
                 required
               />
             </label>
           )}
         </div>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={draft.enabled}
-            onChange={(event) => set("enabled", event.target.checked)}
-          />{" "}
-          Enabled
-        </label>
+
+        <div className="formSectionTitle">Schedule &amp; Automation</div>
+
         <label>
-          Schedule<select
+          Schedule Frequency
+          <select
             value={draft.scheduleEnabled ? draft.runFrequency : 0}
             onChange={(event) => {
               const value = Number(event.target.value);
@@ -436,18 +508,32 @@ export function WatchForm() {
             ))}
           </select>
         </label>
+
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={draft.enabled}
+            onChange={(event) => set("enabled", event.target.checked)}
+          />
+          Enabled (active in background searches)
+        </label>
+
         <label className="check">
           <input
             type="checkbox"
             checked={draft.notifyOnInitialRun}
             onChange={(event) =>
               set("notifyOnInitialRun", event.target.checked)}
-          />{" "}
+          />
           Notify on the initial successful run
         </label>
+
         {refinements && refinements.length > 0 && (
           <fieldset>
-            <legend>Choose a refinement</legend>
+            <legend>Refinement Required</legend>
+            <p className="muted" style={{ margin: "0 0 8px" }}>
+              Car-Part requires specifying this part sub-category:
+            </p>
             {refinements.map((item) => (
               <label className="check" key={item.label}>
                 <input
@@ -456,13 +542,14 @@ export function WatchForm() {
                   checked={draft.refinementLabel === item.label}
                   onChange={() =>
                     set("refinementLabel", item.label)}
-                />{" "}
+                />
                 {item.label}
               </label>
             ))}
           </fieldset>
         )}
-        <div className="actions">
+
+        <div className="actions" style={{ marginTop: 12 }}>
           {refinements === undefined
             ? (
               <button type="button" onClick={continueToRefinement}>
@@ -470,7 +557,9 @@ export function WatchForm() {
               </button>
             )
             : <button type="submit">Save saved search</button>}
-          <Link to="/watches">Cancel</Link>
+          <Link className="buttonLink quiet" to={id ? `/watches/${id}` : "/watches"}>
+            Cancel
+          </Link>
         </div>
       </form>
     </main>
