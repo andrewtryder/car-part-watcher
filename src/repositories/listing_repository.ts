@@ -130,7 +130,7 @@ export async function associateListing(
 export async function listWatchListings(watchId: string, limit = 50) {
   const rows =
     await getDatabase()`select l.*, wl.first_seen_at as watch_first_seen_at, wl.last_seen_at as watch_last_seen_at from watch_listings wl join listings l on l.id=wl.listing_id where wl.watch_id=${watchId} order by wl.last_seen_at desc limit ${
-      Math.min(Math.max(limit, 1), 100)
+      Math.min(Math.max(limit, 1), 1000)
     }`;
   return rows.map((row: any) => ({
     ...rowToListing(row),
