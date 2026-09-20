@@ -30,6 +30,19 @@ Deno.test("source key ignores price, description, and grade", async () => {
   assertEquals(await sourceKey(changed), await sourceKey(listing));
 });
 
+Deno.test("source key ignores Car-Part partGuid churn", async () => {
+  const originalKey = await sourceKey(listing);
+  assertEquals(
+    await sourceKey({ ...listing, partGuid: "part-guid-b" }),
+    originalKey,
+  );
+  assertEquals(
+    await sourceKey({ ...listing, partGuid: undefined }),
+    originalKey,
+  );
+  assertEquals(identityForListing(listing)?.method, "seller_stock_part");
+});
+
 Deno.test("different seller and stock combinations produce different source keys", async () => {
   assertEquals(
     await sourceKey({ ...listing, sellerUserId: "9999" }) === await sourceKey(listing),
@@ -41,7 +54,7 @@ Deno.test("different seller and stock combinations produce different source keys
   );
 });
 
-Deno.test("v2 skips rows without a durable source identity", () => {
+Deno.test("v3 skips rows without seller, stock, or part identity", () => {
   const withoutSeller = { ...listing, sellerUserId: undefined };
   assertEquals(identityForListing(withoutSeller), undefined);
   assertEquals(fallbackIdentity(withoutSeller)?.method, "fallback_composite");
