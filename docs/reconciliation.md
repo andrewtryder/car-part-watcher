@@ -43,3 +43,17 @@ rows are skipped rather than using a legacy fallback. The CR-V production
 baseline fetched eight pages, persisted 272 identified listings, and skipped
 the remaining source rows without a complete strong identity. Its immediate
 repeat persisted 272 listings with zero new-for-watch relationships.
+
+
+## Identity-v3 duplicate-notification fix — 2026-09-20
+
+A production CR-V bumper listing (stock `AKJ119`) generated repeated new-part
+notifications even though the visible seller, stock number, part, and price were
+the same. The v2 identity included Car-Part's opaque `partGuid`, so GUID churn
+could split one physical stock item into several durable listings.
+
+Identity v3 uses seller + stock number + normalized part and excludes
+`partGuid`. Reconciliation includes a compatibility lookup for existing v2
+rows, preferring a legacy row already associated with the current watch. This
+keeps established inventory associated during rollout instead of rebaselining
+the watch or generating a notification flood.

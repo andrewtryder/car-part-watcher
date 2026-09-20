@@ -63,6 +63,29 @@ Deno.test("first successful result creates a listing and watch association", asy
   }
 });
 
+Deno.test("partGuid churn does not make the same stock item new again", async () => {
+  const { kv, store } = await freshStore();
+  try {
+    const watch = await store.createWatch(request);
+    await store.runWatch(
+      watch,
+      new FakeSource(() => Promise.resolve(result([listing]))),
+    );
+    const repeated = {
+      ...listing,
+      partGuid: "part-guid-b",
+    };
+    const summary = await store.runWatch(
+      watch,
+      new FakeSource(() => Promise.resolve(result([repeated]))),
+    );
+    assertEquals(summary.newForWatch, 0);
+    assertEquals(summary.updatedListings, 0);
+  } finally {
+    await kv.close();
+  }
+});
+
 Deno.test("repeat result is not new and updates mutable listing fields", async () => {
   const { kv, store } = await freshStore();
   try {

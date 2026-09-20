@@ -81,10 +81,33 @@ export async function upsertListing(
   observedAt: Date,
   context?: { watchId?: string; runId?: string },
 ) {
-  const existing =
+  let existing =
     (await sql`select * from listings where source=${next.source} and source_key=${next.sourceKey}`)[
       0
     ];
+
+  // Identity v3 deliberately excludes Car-Part's partGuid because the same
+  // physical stock item can surface with different GUIDs. Reuse a matching
+  // legacy row so deploying the new key does not make established inventory
+  // appear new again. Prefer a row already associated with this watch when
+  // historical GUID churn created more than one legacy row.
+  if (!existing && next.sellerUserId && next.stockNumber && next.part) {
+    const watchId = context?.watchId ?? null;
+    existing = (await sql`
+      select l.*
+      from listings l
+      left join watch_listings wl
+        on wl.listing_id = l.id
+        and wl.watch_id = ${watchId}::uuid
+      where l.source = ${next.source}
+        and l.seller_user_id = ${next.sellerUserId}
+        and lower(l.stock_number) = lower(${next.stockNumber})
+        and lower(l.part) = lower(${next.part})
+      order by (wl.watch_id is not null) desc, l.first_seen_at asc
+      limit 1
+    `)[0];
+  }
+
   const values = [
     next.sellerUserId ?? null,
     next.partSourceId ?? null,
