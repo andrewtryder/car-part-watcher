@@ -45,5 +45,5 @@ export async function sourceKey(listing: CarPartListing): Promise<string | undef
   const bytes = new TextEncoder().encode(`car-part:v3:${identity.method}:${identity.canonical}`);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const hash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `car-part:v2:sha256:${hash}`;
+  return `car-part:v3:sha256:${hash}`;
 }
