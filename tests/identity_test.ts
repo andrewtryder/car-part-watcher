@@ -40,7 +40,19 @@ Deno.test("source key ignores Car-Part partGuid churn", async () => {
     await sourceKey({ ...listing, partGuid: undefined }),
     originalKey,
   );
-  assertEquals(identityForListing(listing)?.method, "seller_stock_part");
+  assertEquals(identityForListing(listing)?.method, "seller_stock_vehicle_part");
+});
+
+Deno.test("source key distinguishes vehicles sharing seller, stock, and part", async () => {
+  const originalKey = await sourceKey(listing);
+  assertEquals(
+    await sourceKey({ ...listing, year: "2016" }) === originalKey,
+    false,
+  );
+  assertEquals(
+    await sourceKey({ ...listing, makeModel: "Honda Civic" }) === originalKey,
+    false,
+  );
 });
 
 Deno.test("different seller and stock combinations produce different source keys", async () => {
@@ -54,8 +66,12 @@ Deno.test("different seller and stock combinations produce different source keys
   );
 });
 
-Deno.test("v3 skips rows without seller, stock, or part identity", () => {
+Deno.test("v4 skips rows without a complete seller, stock, vehicle, and part identity", () => {
   const withoutSeller = { ...listing, sellerUserId: undefined };
   assertEquals(identityForListing(withoutSeller), undefined);
+  assertEquals(identityForListing({ ...listing, stockNumber: undefined }), undefined);
+  assertEquals(identityForListing({ ...listing, year: undefined }), undefined);
+  assertEquals(identityForListing({ ...listing, makeModel: undefined }), undefined);
+  assertEquals(identityForListing({ ...listing, part: undefined }), undefined);
   assertEquals(fallbackIdentity(withoutSeller)?.method, "fallback_composite");
 });
