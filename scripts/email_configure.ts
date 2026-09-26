@@ -8,7 +8,9 @@ if (args.has("--disable")) {
 } else if (args.has("--enable") && args.has("--use-gmail-address")) {
   const toAddress = Deno.env.get("GMAIL_USERNAME");
   if (!toAddress) throw new Error("GMAIL_USERNAME is required to configure email delivery");
-  const saved = await saveEmailNotificationSettings({ enabled: true, toAddress, fromName: "Car Part Watcher", subjectPrefix: "[Car Part Watcher]", appBaseUrl: "" });
+  const appBaseUrl = Deno.env.get("APP_BASE_URL");
+  if (!appBaseUrl) throw new Error("APP_BASE_URL is required to configure email delivery");
+  const saved = await saveEmailNotificationSettings({ enabled: true, toAddress, fromName: "Car Part Watcher", subjectPrefix: "[Car Part Watcher]", appBaseUrl });
   console.log(JSON.stringify({ enabled: saved.enabled, toAddress: saved.toAddress, fromName: saved.fromName, subjectPrefix: saved.subjectPrefix, appBaseUrl: saved.appBaseUrl }));
 } else {
   throw new Error("Use --enable --use-gmail-address or --disable");
