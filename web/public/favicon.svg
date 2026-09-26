@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Car Part Watcher icon</title>
+  <desc id="desc">A car silhouette inside a gear with radar arcs.</desc>
+  <defs>
+    <linearGradient id="gear" x1="36" y1="216" x2="220" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#062653"/>
+      <stop offset=".48" stop-color="#0878e8"/>
+      <stop offset="1" stop-color="#12d8c7"/>
+    </linearGradient>
+    <linearGradient id="radar" x1="78" y1="160" x2="190" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0878e8"/>
+      <stop offset="1" stop-color="#14dfc5"/>
+    </linearGradient>
+    <linearGradient id="car" x1="86" y1="98" x2="172" y2="194" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0c4f91"/>
+      <stop offset="1" stop-color="#031f43"/>
+    </linearGradient>
+  </defs>
+
+  <g fill="url(#gear)">
+    <rect x="115" y="8" width="26" height="38" rx="6"/>
+    <rect x="115" y="210" width="26" height="38" rx="6"/>
+    <rect x="210" y="115" width="38" height="26" rx="6"/>
+    <rect x="8" y="115" width="38" height="26" rx="6"/>
+    <rect x="115" y="8" width="26" height="38" rx="6" transform="rotate(45 128 128)"/>
+    <rect x="115" y="8" width="26" height="38" rx="6" transform="rotate(90 128 128)"/>
+    <rect x="115" y="8" width="26" height="38" rx="6" transform="rotate(135 128 128)"/>
+    <rect x="115" y="8" width="26" height="38" rx="6" transform="rotate(225 128 128)"/>
+    <rect x="115" y="8" width="26" height="38" rx="6" transform="rotate(270 128 128)"/>
+    <rect x="115" y="8" width="26" height="38" rx="6" transform="rotate(315 128 128)"/>
+    <circle cx="128" cy="128" r="88"/>
+  </g>
+
+  <circle cx="128" cy="128" r="67" fill="#fff"/>
+  <circle cx="128" cy="128" r="57" fill="url(#radar)"/>
+  <path d="M65 126a70 70 0 0 1 74-65" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+  <path d="M76 127a57 57 0 0 1 58-53" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="183" cy="67" r="18" fill="url(#radar)" stroke="#fff" stroke-width="8"/>
+  <circle cx="183" cy="67" r="5" fill="#25e2c4"/>
+
+  <path d="M67 145c4-12 13-21 26-25h70c13 4 22 13 26 25l8 18v31c0 8-6 14-14 14h-12c-6 0-11-4-13-9H98c-2 5-7 9-13 9H73c-8 0-14-6-14-14v-31l8-18Z" fill="url(#car)"/>
+  <path d="M93 121c5-11 12-18 22-22h27c10 4 17 11 22 22l5 12H88l5-12Z" fill="url(#car)" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M75 162l28 6-12 11-20-5Z" fill="#fff"/>
+  <path d="M181 162l-28 6 12 11 20-5Z" fill="#fff"/>
+  <path d="M104 190h48" stroke="#0d4780" stroke-width="6" stroke-linecap="round"/>
+</svg>
