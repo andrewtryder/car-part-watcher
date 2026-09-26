@@ -79,6 +79,24 @@ Deno.test("normalization skips a listing missing a strong identity component", a
 
 Deno.test("duplicate result rows are deduplicated and visibly conflicting rows fail", async () => {
   const listing = (await normalizeListing(base))!;
-  assertEquals(deduplicateNormalized([listing, listing]).length, 1);
-  assertThrows(() => deduplicateNormalized([listing, { ...listing, year: "2016" }]), ListingIdentityCollisionError);
+  const canonicalDuplicate = (await normalizeListing({
+    ...base,
+    stockNumber: "a-1",
+    makeModel: " honda   accord ",
+    part: "alternator",
+  }))!;
+  assertEquals(listing.sourceKey, canonicalDuplicate.sourceKey);
+  assertEquals(deduplicateNormalized([listing, canonicalDuplicate]).length, 1);
+
+  assertThrows(
+    () => deduplicateNormalized([listing, { ...listing, year: "2016" }]),
+    ListingIdentityCollisionError,
+  );
+});
+
+Deno.test("different vehicles sharing seller, stock, and part remain distinct", async () => {
+  const first = (await normalizeListing(base))!;
+  const second = (await normalizeListing({ ...base, year: "2016" }))!;
+  assertEquals(first.sourceKey === second.sourceKey, false);
+  assertEquals(deduplicateNormalized([first, second]).length, 2);
 });

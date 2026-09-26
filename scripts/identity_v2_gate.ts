@@ -19,7 +19,7 @@ async function snapshot(name: string) {
   await Deno.writeTextFile(`/tmp/crv-identity-v2-snapshot-${name}.json`,JSON.stringify(out)); return out;
 }
 const a=await snapshot("a"); const b=await snapshot("b");
-const inventoryKey=(x:any)=>`${x.sellerUserId}|${x.stockNumber}|${x.part}`;
+const inventoryKey=(x:any)=>`${x.sellerUserId}|${x.stockNumber}|${x.year}|${x.makeModel}|${x.part}`;
 const ka=new Map(a.rows.filter(x=>x.key).map(x=>[inventoryKey(x),x.key])); const kb=new Map(b.rows.filter(x=>x.key).map(x=>[inventoryKey(x),x.key]));
 const both=[...ka.keys()].filter(k=>kb.has(k)); const changed=both.filter(k=>ka.get(k)!==kb.get(k)!);
 const report={a:{...a,rows:undefined},b:{...b,rows:undefined},cross:{confident:both.length,stable:both.length-changed.length,changed:changed.length,onlyA:a.identified-both.length,onlyB:b.identified-both.length},pass:a.collisions===0&&b.collisions===0&&changed.length===0};

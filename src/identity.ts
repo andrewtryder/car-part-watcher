@@ -6,7 +6,13 @@ function normalized(value: string | undefined): string | undefined {
 }
 
 /** Historical values remain in the union because persisted rows may predate the current strategy. */
-export type IdentityMethod = "seller_stock_part_guid" | "part_guid" | "seller_stock_source" | "fallback_composite" | "seller_stock_part";
+export type IdentityMethod =
+  | "seller_stock_part_guid"
+  | "part_guid"
+  | "seller_stock_source"
+  | "fallback_composite"
+  | "seller_stock_part"
+  | "seller_stock_vehicle_part";
 
 export interface ListingIdentity {
   method: IdentityMethod;
@@ -16,9 +22,14 @@ export interface ListingIdentity {
 export function listingIdentity(listing: CarPartListing): ListingIdentity | undefined {
   const seller = normalized(listing.sellerUserId);
   const stock = normalized(listing.stockNumber);
+  const year = normalized(listing.year);
+  const makeModel = normalized(listing.makeModel);
   const part = normalized(listing.part);
-  return seller && stock && part
-    ? { method: "seller_stock_part", canonical: `${seller}|${stock}|${part}` }
+  return seller && stock && year && makeModel && part
+    ? {
+      method: "seller_stock_vehicle_part",
+      canonical: `${seller}|${stock}|${year}|${makeModel}|${part}`,
+    }
     : undefined;
 }
 
@@ -42,8 +53,8 @@ export function identityForListing(listing: CarPartListing): ListingIdentity | u
 export async function sourceKey(listing: CarPartListing): Promise<string | undefined> {
   const identity = identityForListing(listing);
   if (!identity) return undefined;
-  const bytes = new TextEncoder().encode(`car-part:v3:${identity.method}:${identity.canonical}`);
+  const bytes = new TextEncoder().encode(`car-part:v4:${identity.method}:${identity.canonical}`);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const hash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `car-part:v3:sha256:${hash}`;
+  return `car-part:v4:sha256:${hash}`;
 }
