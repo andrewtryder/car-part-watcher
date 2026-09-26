@@ -6,7 +6,6 @@ import {
   Play,
   RefreshCw,
   Search,
-  Wrench,
 } from "lucide-react";
 import {
   type Dashboard,
@@ -489,11 +488,14 @@ function ConsoleNav() {
   return (
     <aside>
       <div className="brand">
-        <Wrench size={22} className="brandIcon" />
-        <div>
-          <div className="brandTitle">Car Part Watcher</div>
-          <div className="brandTagline">Ops console</div>
+        <div className="brandLogoFrame">
+          <img
+            className="brandLogo"
+            src="/car-part-watcher-logo.svg"
+            alt="Car Part Watcher"
+          />
         </div>
+        <div className="brandTagline">Ops console</div>
       </div>
       <nav>
         <Link className={active("/") ? "active" : ""} to="/">
