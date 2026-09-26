@@ -36,4 +36,6 @@ deno task build
 
 The application is configured for Deno Deploy in `deno.json`. Production builds run the web build and the source-controlled database migration step before routing the new revision.
 
+Production console: https://car-part-watcher.andrewtryder.deno.net
+
 More implementation detail is available in the `docs/` directory.
