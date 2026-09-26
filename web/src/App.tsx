@@ -4,8 +4,8 @@ import {
   Clock3,
   LayoutDashboard,
   Play,
-  RefreshCw,
   Search,
+  Settings,
 } from "lucide-react";
 import {
   type Dashboard,
@@ -68,22 +68,17 @@ function Badge(
 }
 
 function Stat(
-  { label, value, detail, tone }: {
+  { label, value, detail }: {
     label: string;
     value: string | number;
     detail?: React.ReactNode;
-    tone?: "slate" | "green" | "amber" | "red" | "blue";
   },
 ) {
   return (
     <section className="stat">
       <p className="eyebrow">{label}</p>
       <strong>{value}</strong>
-      {detail && (
-        <div className="statMeta">
-          {tone ? <Badge tone={tone}>{detail}</Badge> : <small>{detail}</small>}
-        </div>
-      )}
+      {detail ? <small>{detail}</small> : null}
     </section>
   );
 }
@@ -172,33 +167,20 @@ export function DashboardPage() {
     }
   };
 
-  const lastRunTone = (status?: string): "green" | "red" | "amber" | "slate" => {
-    if (!status) return "slate";
-    if (status.toLowerCase().includes("succeed") || status.toLowerCase().includes("ok")) {
-      return "green";
-    }
-    if (status.toLowerCase().includes("fail") || status.toLowerCase().includes("error")) {
-      return "red";
-    }
-    return "amber";
-  };
-
   return (
     <main>
       <header>
         <div className="headerTitleGroup">
-          <p className="eyebrow">OPERATIONS</p>
+          <p className="eyebrow">OPS CONSOLE</p>
           <h1>Dashboard</h1>
-          <div className="status">
-            <span className="onlineDot" /> {data?.timezone ?? "Loading timezone…"}
-          </div>
+          <p className="muted">{data?.timezone ?? "Loading timezone…"}</p>
         </div>
         <div className="headerActions">
           <button
             onClick={runAllDue}
             disabled={runningAll || !data?.watches?.length}
           >
-            <Play size={14} /> {runningAll ? "Running searches…" : "Run all due"}
+            <Play size={14} /> {runningAll ? "Running…" : "Run all"}
           </button>
         </div>
       </header>
@@ -217,34 +199,32 @@ export function DashboardPage() {
           <>
             <div className="stats">
               <Stat
-                label="Active Searches"
-                value={data.summary.activeWatchCount}
-                detail="Enabled searches"
+                label="Searches"
+                value={data.watches.length}
+                detail={`${data.summary.activeWatchCount} enabled`}
               />
               <Link className="statLink" to="/new-parts">
                 <Stat
                   label="New Parts"
                   value={data.summary.newPartCount}
-                  detail="Unread part events"
-                  tone={data.summary.newPartCount > 0 ? "blue" : undefined}
+                  detail="Unread events"
                 />
               </Link>
               <Stat
-                label="Pending Notifications"
-                value={data.summary.pendingNotificationCount}
-                detail="Queued events"
+                label="Runs today"
+                value={data.recentRuns.filter((run) => {
+                  if (!run.startedAt) return false;
+                  return new Date(run.startedAt).toDateString() ===
+                    new Date().toDateString();
+                }).length}
+                detail="Recent search runs"
               />
               <Stat
-                label="Failed Notifications"
-                value={data.summary.failedNotificationCount}
-                detail="Delivery failures"
-                tone={data.summary.failedNotificationCount > 0 ? "red" : undefined}
-              />
-              <Stat
-                label="Last Run"
-                value={time(data.summary.lastRunAt, data.timezone)}
-                detail={data.summary.lastRunStatus ?? "No runs yet"}
-                tone={lastRunTone(data.summary.lastRunStatus)}
+                label="Catalog"
+                value={data.catalog ? "OK" : "—"}
+                detail={data.catalog
+                  ? `Refreshed ${time(data.catalog.fetchedAt, data.timezone)}`
+                  : "Not initialized"}
               />
             </div>
 
@@ -252,10 +232,8 @@ export function DashboardPage() {
 
             <section className="section">
               <div className="sectionHead">
-                <div>
-                  <p className="eyebrow">SAVED SEARCHES</p>
-                  <h2>Watch health</h2>
-                </div>
+                <h2>Saved searches</h2>
+                <Link className="accentLink" to="/watches/new">Add search</Link>
               </div>
               {data.watches.length === 0
                 ? (
@@ -269,76 +247,47 @@ export function DashboardPage() {
                   </div>
                 )
                 : (
-                  <div className="watchGrid">
+                  <div className="listCard">
                     {data.watches.map((watch) => (
-                      <article className="watch" key={watch.id}>
-                        <div className="watchTop">
-                          <div>
-                            <h3>{watch.name}</h3>
-                            <p>
-                              {watch.criteria.year} {watch.criteria.makeModel} ·{" "}
-                              {watch.criteria.part}
-                            </p>
-                          </div>
-                          <Badge tone={watch.enabled ? "green" : "slate"}>
-                            {watch.enabled ? "Enabled" : "Disabled"}
-                          </Badge>
-                        </div>
-                        <p className="criteria">
-                          {watch.criteria.location || "All areas"}
-                          {watch.criteria.refinementLabel
-                            ? ` · ${watch.criteria.refinementLabel}`
-                            : ""}
-                        </p>
-                        <div className="badges">
-                          {watch.schedule.enabled
-                            ? (
-                              <Badge tone="blue">
-                                {frequency(watch.schedule.frequency)}
-                              </Badge>
-                            )
-                            : <Badge tone="slate">Not scheduled</Badge>}
-                          {(watch.lastRun?.newListingCount ?? 0) > 0 && (
-                            <Badge tone="amber">
-                              {watch.lastRun!.newListingCount} New
+                      <article className="listRow" key={watch.id}>
+                        <div>
+                          <h3>{watch.name}</h3>
+                          <p className="muted">
+                            {watch.criteria.year} {watch.criteria.makeModel} · {watch.criteria.part}
+                            {watch.criteria.refinementLabel
+                              ? ` · ${watch.criteria.refinementLabel}`
+                              : ""}
+                          </p>
+                          <div className="inlineStatus">
+                            <Badge tone={watch.enabled ? "green" : "slate"}>
+                              {watch.enabled ? "Enabled" : "Disabled"}
                             </Badge>
-                          )}
+                            {watch.schedule.enabled
+                              ? <Badge tone="blue">{frequency(watch.schedule.frequency)}</Badge>
+                              : <Badge tone="slate">Not scheduled</Badge>}
+                          </div>
                         </div>
-                        <dl>
-                          <div>
-                            <dt>Last run</dt>
-                            <dd>
-                              {time(watch.lastRun?.startedAt, data.timezone)}
-                            </dd>
+                        <div className="listMeta">
+                          {(watch.lastRun?.newListingCount ?? 0) > 0
+                            ? (
+                              <span className="listStatus listStatusNew">
+                                {watch.lastRun?.newListingCount} new
+                              </span>
+                            )
+                            : <span className="listStatus">Idle</span>}
+                          <small>{time(watch.lastRun?.startedAt, data.timezone)}</small>
+                          <div className="rowActions">
+                            <button
+                              className="linkButton"
+                              disabled={running === watch.id}
+                              onClick={() => execute(watch.id)}
+                            >
+                              {running === watch.id ? "Running…" : "Run"}
+                            </button>
+                            <Link className="accentLink" to={`/watches/${watch.id}`}>
+                              Open
+                            </Link>
                           </div>
-                          <div>
-                            <dt>Results</dt>
-                            <dd>{watch.lastRun?.listingCount ?? "—"}</dd>
-                          </div>
-                          <div>
-                            <dt>Changed</dt>
-                            <dd>{watch.lastRun?.changedCount ?? "—"}</dd>
-                          </div>
-                        </dl>
-                        <div className="actions cardActions">
-                          <Link
-                            className="buttonLink quiet"
-                            to={`/watches/${watch.id}`}
-                          >
-                            Open
-                          </Link>
-                          <button
-                            disabled={running === watch.id}
-                            onClick={() => execute(watch.id)}
-                          >
-                            {running === watch.id ? "Running…" : "Run"}
-                          </button>
-                          <Link
-                            className="buttonLink quiet"
-                            to={`/watches/${watch.id}/edit`}
-                          >
-                            Edit
-                          </Link>
                         </div>
                       </article>
                     ))}
@@ -346,114 +295,57 @@ export function DashboardPage() {
                 )}
             </section>
 
-            <section className="twoCol">
-              <article className="panel">
-                <div className="sectionHead">
-                  <div>
-                    <p className="eyebrow">RECENT RUNS</p>
-                    <h2>Recent activity</h2>
+            <section className="section">
+              <div className="sectionHead">
+                <h2>Recent activity</h2>
+                <button
+                  className="linkButton"
+                  disabled={refreshing}
+                  onClick={refresh}
+                >
+                  {refreshing ? "Refreshing catalog…" : "Refresh catalog"}
+                </button>
+              </div>
+              {data.recentRuns.length
+                ? (
+                  <div className="listCard">
+                    {data.recentRuns.slice(0, 8).map((run) => (
+                      <article className="listRow activityRow" key={run.id}>
+                        <div>
+                          <p className="activityTitle">
+                            <Link to={`/watches/${run.watchId}`} className="accentLink">
+                              {run.watchName}
+                            </Link>{" "}
+                            {run.newListingCount
+                              ? `found ${run.newListingCount} new listings`
+                              : run.status === "failed"
+                              ? "run failed"
+                              : "finished with no changes"}
+                          </p>
+                          <p className="muted">
+                            {run.runType === "scheduled" ? "Scheduled" : "Manual"} ·{" "}
+                            {duration(run)}
+                          </p>
+                        </div>
+                        <small>{time(run.startedAt, data.timezone)}</small>
+                      </article>
+                    ))}
+                    {data.catalog && (
+                      <article className="listRow activityRow">
+                        <div>
+                          <p className="activityTitle">Catalog refresh completed</p>
+                          <p className="muted">
+                            {data.catalog.yearCount} years ·{" "}
+                            {data.catalog.makeModelCount.toLocaleString()} makes/models ·{" "}
+                            {data.catalog.partCount} parts
+                          </p>
+                        </div>
+                        <small>{time(data.catalog.fetchedAt, data.timezone)}</small>
+                      </article>
+                    )}
                   </div>
-                </div>
-                {data.recentRuns.length
-                  ? (
-                    <div className="tableWrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Started</th>
-                            <th>Watch</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                            <th>Duration</th>
-                            <th>Results</th>
-                            <th>New</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.recentRuns.map((run) => (
-                            <tr key={run.id}>
-                              <td>{time(run.startedAt, data.timezone)}</td>
-                              <td>
-                                <Link
-                                  to={`/watches/${run.watchId}`}
-                                  className="accentLink"
-                                >
-                                  {run.watchName}
-                                </Link>
-                              </td>
-                              <td>
-                                {run.runType === "scheduled" ? "Scheduled" : "Manual"}
-                              </td>
-                              <td>
-                                <Badge
-                                  tone={run.status === "succeeded"
-                                    ? "green"
-                                    : run.status === "failed"
-                                    ? "red"
-                                    : "amber"}
-                                >
-                                  {run.status}
-                                </Badge>
-                              </td>
-                              <td>{duration(run)}</td>
-                              <td>{run.listingCount ?? "—"}</td>
-                              <td>{run.newListingCount ?? "—"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )
-                  : <p className="muted">No runs recorded yet.</p>}
-              </article>
-
-              <article className="panel catalog">
-                <div className="sectionHead">
-                  <div>
-                    <p className="eyebrow">CAR-PART CATALOG</p>
-                    <h2>Catalog status</h2>
-                  </div>
-                  <button
-                    className="quiet icon"
-                    disabled={refreshing}
-                    onClick={refresh}
-                    aria-label="Refresh catalog"
-                  >
-                    <RefreshCw
-                      size={16}
-                      className={refreshing ? "spin" : ""}
-                    />
-                  </button>
-                </div>
-                {data.catalog
-                  ? (
-                    <>
-                      <p className="muted">
-                        Last refreshed{" "}
-                        {time(data.catalog.fetchedAt, data.timezone)}
-                      </p>
-                      <div className="catalogCounts">
-                        <span>
-                          <b>{data.catalog.yearCount}</b> years
-                        </span>
-                        <span>
-                          <b>
-                            {data.catalog.makeModelCount.toLocaleString()}
-                          </b>{" "}
-                          makes/models
-                        </span>
-                        <span>
-                          <b>{data.catalog.partCount}</b> parts
-                        </span>
-                      </div>
-                    </>
-                  )
-                  : (
-                    <p className="muted">
-                      Catalog has not been initialized.
-                    </p>
-                  )}
-              </article>
+                )
+                : <p className="muted">No activity yet.</p>}
             </section>
           </>
         )}
@@ -486,31 +378,40 @@ function ConsoleNav() {
     (path === "/watches" && location.pathname.startsWith("/watches"));
 
   return (
-    <aside>
-      <div className="brand">
-        <div className="brandLogoFrame">
+    <aside className="appSidebar">
+      <div className="sidebarMain">
+        <div className="brand">
           <img
-            className="brandLogo"
-            src="/car-part-watcher-logo.svg"
-            alt="Car Part Watcher"
+            className="brandIcon"
+            src="/favicon.svg"
+            alt=""
+            aria-hidden="true"
           />
+          <div className="brandText">
+            <span>Car Part Watcher</span>
+          </div>
         </div>
-        <div className="brandTagline">Ops console</div>
+        <p className="sidebarLabel">OPS CONSOLE</p>
+        <nav>
+          <Link className={active("/") ? "active" : ""} to="/">
+            <LayoutDashboard size={18} /> Dashboard
+          </Link>
+          <Link className={active("/watches") ? "active" : ""} to="/watches">
+            <Search size={18} /> Saved searches
+          </Link>
+          <Link className={active("/new-parts") ? "active" : ""} to="/new-parts">
+            <Bell size={18} /> New parts <em>{unread ?? "0"}</em>
+          </Link>
+          <Link className={active("/runs") ? "active" : ""} to="/runs">
+            <Clock3 size={18} /> Run history
+          </Link>
+        </nav>
       </div>
-      <nav>
-        <Link className={active("/") ? "active" : ""} to="/">
-          <LayoutDashboard size={18} /> Dashboard
-        </Link>
-        <Link className={active("/watches") ? "active" : ""} to="/watches">
-          <Search size={18} /> Saved Searches
-        </Link>
-        <Link className={active("/new-parts") ? "active" : ""} to="/new-parts">
-          <Bell size={18} /> New Parts <em>{unread ?? "0"}</em>
-        </Link>
-        <Link className={active("/runs") ? "active" : ""} to="/runs">
-          <Clock3 size={18} /> Run History
-        </Link>
-      </nav>
+      <div className="sidebarFooter">
+        <button type="button" className="settingsRow" disabled>
+          <Settings size={16} /> Settings
+        </button>
+      </div>
     </aside>
   );
 }
