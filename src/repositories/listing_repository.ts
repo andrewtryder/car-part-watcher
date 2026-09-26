@@ -86,12 +86,15 @@ export async function upsertListing(
       0
     ];
 
-  // Identity v3 deliberately excludes Car-Part's partGuid because the same
-  // physical stock item can surface with different GUIDs. Reuse a matching
-  // legacy row so deploying the new key does not make established inventory
-  // appear new again. Prefer a row already associated with this watch when
-  // historical GUID churn created more than one legacy row.
-  if (!existing && next.sellerUserId && next.stockNumber && next.part) {
+  // Identity v4 adds normalized vehicle metadata to distinguish recycler stock
+  // numbers that are reused across different vehicles, while still excluding
+  // Car-Part's unstable partGuid. Reuse only a legacy row for the same visible
+  // vehicle so the rollout preserves established watch associations without
+  // merging distinct vehicles that share seller + stock + part.
+  if (
+    !existing && next.sellerUserId && next.stockNumber && next.part &&
+    next.year && next.makeModel
+  ) {
     const watchId = context?.watchId ?? null;
     existing = (await sql`
       select l.*
@@ -102,6 +105,8 @@ export async function upsertListing(
       where l.source = ${next.source}
         and l.seller_user_id = ${next.sellerUserId}
         and lower(l.stock_number) = lower(${next.stockNumber})
+        and lower(l.year) = lower(${next.year})
+        and lower(l.make_model) = lower(${next.makeModel})
         and lower(l.part) = lower(${next.part})
       order by (wl.watch_id is not null) desc, l.first_seen_at asc
       limit 1
