@@ -57,3 +57,18 @@ Identity v3 uses seller + stock number + normalized part and excludes
 rows, preferring a legacy row already associated with the current watch. This
 keeps established inventory associated during rollout instead of rebaselining
 the watch or generating a notification flood.
+
+
+## Identity-v4 collision fix — 2026-09-25
+
+Scheduled CR-V bumper runs began failing on 2026-09-21 with
+`LISTING_IDENTITY_COLLISION`. Identity v3 intentionally ignored
+`partGuid`, but seller + stock number + part was not sufficient to distinguish
+all visible vehicles returned by Car-Part.
+
+Identity v4 adds normalized year and make/model to the durable key while
+continuing to exclude opaque GUIDs. Legacy v2/v3 rows are reused only when
+seller, stock number, year, make/model, and part match, preserving existing
+watch associations without silently merging distinct vehicles. Collision errors
+now include normalized existing/incoming signatures to make any future identity
+incident diagnosable from run history.
