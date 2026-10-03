@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Watch } from "../../api.ts";
+import { failureMessage, WatchHealthBadge } from "../WatchHealthBadge.tsx";
+import { formatDate } from "../../utils/format.ts";
 
 const frequency: Record<number, string> = {
   1: "Once daily",
@@ -71,6 +73,46 @@ export function WatchSummary({
           </button>
         </div>
       </header>
+      <section className="section operationalStatus">
+        <div className="sectionHead">
+          <h2>Operational Status</h2>
+          <WatchHealthBadge health={item.health} />
+        </div>
+        <dl>
+          <div>
+            <dt>Last successful run</dt>
+            <dd>
+              {formatDate(item.health?.lastSuccessfulAt, timezone, {
+                fallback: "Not available",
+              })}
+            </dd>
+          </div>
+          <div>
+            <dt>Last scheduled attempt</dt>
+            <dd>
+              {formatDate(item.health?.lastScheduledRunAt, timezone, {
+                fallback: "Not available",
+              })}
+            </dd>
+          </div>
+          <div>
+            <dt>Consecutive scheduled failures</dt>
+            <dd>{item.health?.consecutiveScheduledFailures ?? 0}</dd>
+          </div>
+          <div>
+            <dt>Latest failure</dt>
+            <dd>
+              {failureMessage(item.health) ?? "None"}
+              {item.health?.lastFailureCode
+                ? ` (${item.health.lastFailureCode})`
+                : ""}
+            </dd>
+          </div>
+        </dl>
+        <Link className="accentLink" to={`/runs?watch=${item.id}`}>
+          View run history
+        </Link>
+      </section>
     </>
   );
 }

@@ -15,6 +15,10 @@ import {
 import { useRunWatch } from "./hooks/useRunWatch.ts";
 import { SearchSelect } from "./components/watches/SearchSelect.tsx";
 import { formatDate } from "./utils/format.ts";
+import {
+  failureMessage,
+  WatchHealthBadge,
+} from "./components/WatchHealthBadge.tsx";
 
 const frequencies: Record<number, string> = {
   0: "Not scheduled",
@@ -48,7 +52,8 @@ function payload(draft: WatchDraft): WatchDraft {
 }
 
 function fromWatch(value: Watch): WatchDraft {
-  return { ...value, refinementLabel: value.refinement?.label };
+  const { health: _health, ...draft } = value;
+  return { ...draft, refinementLabel: value.refinement?.label };
 }
 
 export function WatchList() {
@@ -182,6 +187,7 @@ export function WatchList() {
                 </p>
 
                 <div className="badges">
+                  <WatchHealthBadge health={item.health} />
                   <span
                     className={`badge ${
                       item.scheduleEnabled ? "blue" : "slate"
@@ -195,6 +201,12 @@ export function WatchList() {
                     <span className="badge slate">{item.refinement.label}</span>
                   )}
                 </div>
+
+                {item.health?.status === "failing" && (
+                  <p className="notice error">
+                    {failureMessage(item.health) ?? "Scheduled search failed"}
+                  </p>
+                )}
 
                 <dl>
                   <div>

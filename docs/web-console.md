@@ -13,3 +13,10 @@ Global and per-watch run history show execution outcomes.
 Browser-native HTTP Basic Authentication protects the SPA and API when enabled;
 the frontend never stores or injects credentials. `GET /health` is the only
 public route. See [security.md](security.md) for access policy.
+
+# Operational watch health
+
+The Dashboard, Saved Searches, and Watch Detail surfaces show derived watch
+health. Dashboard highlights searches with outstanding scheduled failures; Saved
+Searches uses a compact indicator; Watch Detail provides timestamps and the
+latest safe failure reason. Run History remains the detailed source of truth.

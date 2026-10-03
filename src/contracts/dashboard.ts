@@ -9,6 +9,7 @@ export interface DashboardDto {
     newPartCount: number;
     pendingNotificationCount: number;
     failedNotificationCount: number;
+    failingWatchCount: number;
     lastRunAt?: string;
     lastRunStatus?: string;
   };
@@ -19,6 +20,7 @@ export interface DashboardDto {
     partCount: number;
   };
   watches: DashboardWatchDto[];
+  failingWatches: Array<Pick<DashboardWatchDto, "id" | "name" | "health">>;
   recentRuns: RecentRunDto[];
 }
 

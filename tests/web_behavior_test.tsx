@@ -13,6 +13,11 @@ import { Inbox } from "../web/src/Inbox.tsx";
 import { GlobalRunHistory } from "../web/src/RunHistory.tsx";
 import { Listings } from "../web/src/WatchDetail.tsx";
 import { WatchForm } from "../web/src/Watches.tsx";
+import {
+  failureMessage,
+  WatchHealthBadge,
+} from "../web/src/components/WatchHealthBadge.tsx";
+import { WatchSummary } from "../web/src/components/watch-detail/WatchSummary.tsx";
 
 const catalog = {
   source: "car-part",
@@ -139,6 +144,87 @@ Deno.test("manual run presents success and failure feedback", async () => {
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     await screen.findByText("Browser unavailable");
     await waitFor(() => assertEquals(runCalls, 2));
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("watch health appears on the dashboard and detail with safe failure fallback", async () => {
+  const health = {
+    status: "failing" as const,
+    consecutiveScheduledFailures: 2,
+    lastFailureAt: "2026-10-02T00:00:00Z",
+    lastFailureCode: "UNKNOWN_SAFE_CODE",
+    lastFailureMessage: "Source returned an unexpected response",
+  };
+  const restore = mockFetch((path) => {
+    if (path === "/api/dashboard") {
+      return reply({
+        timezone: "UTC",
+        summary: { failingWatchCount: 1 },
+        failingWatches: [{ id: "watch-1", name: "Failing Search", health }],
+        watches: [],
+        recentRuns: [],
+      });
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  try {
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Needs attention");
+    screen.getByText("Failing Search");
+    screen.getByText(/Source returned an unexpected response/);
+    cleanup();
+    render(
+      <MemoryRouter>
+        <WatchSummary
+          item={{
+            id: "watch-1",
+            name: "Failing Search",
+            enabled: true,
+            year: "2015",
+            makeModel: "Honda Accord",
+            part: "Alternator",
+            sort: "price",
+            scheduleEnabled: true,
+            runFrequency: 1,
+            notifyOnInitialRun: false,
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+            health,
+          }}
+          timezone="UTC"
+          running={false}
+          onRun={() => {}}
+          onToggle={() => {}}
+          onDelete={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    screen.getByText("Operational Status");
+    screen.getByText("Failed 2 scheduled runs");
+    assertEquals(
+      failureMessage(health),
+      "Source returned an unexpected response",
+    );
+    cleanup();
+    render(
+      <WatchHealthBadge
+        health={{ status: "healthy", consecutiveScheduledFailures: 0 }}
+      />,
+    );
+    screen.getByText("Healthy");
+    cleanup();
+    render(
+      <WatchHealthBadge
+        health={{ status: "never_run", consecutiveScheduledFailures: 0 }}
+      />,
+    );
+    screen.getByText("Never run");
   } finally {
     restore();
   }
