@@ -28,8 +28,8 @@ browser worker
      Car-Part.com
 ```
 
-The active worker and persistence details are in
-[`browser-worker.md`](browser-worker.md) and [`data-model.md`](data-model.md).
+The current implementation is described by
+[`architecture.md`](../architecture.md) and [`database.md`](../database.md).
 Browser-engine experimentation is complete; the historical experiments below are
 retained as evidence, not as active implementation options.
 

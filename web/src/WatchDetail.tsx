@@ -3,9 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import {
   deleteWatch,
-  refreshUnreadCount,
   type Run,
-  runWatch,
   saveWatch,
   system,
   type Watch,
@@ -15,18 +13,16 @@ import {
   watchListings,
   watchRuns,
 } from "./api.ts";
+import { WatchRunHistory } from "./components/watch-detail/WatchRunHistory.tsx";
+import { WatchSummary } from "./components/watch-detail/WatchSummary.tsx";
+import { RunStatusBadge } from "./components/RunStatusBadge.tsx";
+import { useRunWatch } from "./hooks/useRunWatch.ts";
 
 import {
   formatDate as formatWithDate,
   formatDuration,
   formatFieldLabel,
 } from "./utils/format.ts";
-
-const frequency: Record<number, string> = {
-  1: "Once daily",
-  2: "Twice daily",
-  3: "Three times daily",
-};
 
 const draftFor = (value: Watch): WatchDraft => ({
   ...value,
@@ -38,16 +34,6 @@ const formatDate = (value: string | undefined, timezone: string) =>
     includeYear: true,
     fallback: "Not available",
   });
-
-const statusLabel = (status: Run["status"]) =>
-  status === "succeeded"
-    ? "Succeeded"
-    : status === "failed"
-    ? "Failed"
-    : "Running";
-
-const statusTone = (status: Run["status"]) =>
-  status === "succeeded" ? "green" : status === "failed" ? "red" : "amber";
 
 type SortField =
   | "photo"
@@ -80,7 +66,7 @@ function SectionError({ retry }: { retry: () => void }) {
   );
 }
 
-function Listings({
+export function Listings({
   items,
   loading,
   failed,
@@ -469,93 +455,6 @@ function Listings({
   );
 }
 
-function RunHistory({
-  runs,
-  loading,
-  failed,
-  timezone,
-  onRun,
-  retry,
-}: {
-  runs?: Run[];
-  loading: boolean;
-  failed: boolean;
-  timezone: string;
-  onRun: () => void;
-  retry: () => void;
-}) {
-  return (
-    <section className="section">
-      <div className="sectionHead">
-        <div>
-          <p className="eyebrow">ACTIVITY</p>
-          <h2>Recent Runs</h2>
-        </div>
-      </div>
-      {loading
-        ? <div className="skeleton detailSkeleton">Loading recent runs…</div>
-        : failed
-        ? <SectionError retry={retry} />
-        : !runs?.length
-        ? (
-          <section className="empty">
-            <h3>No runs yet.</h3>
-            <p>Run this saved search to start collecting results.</p>
-            <button type="button" onClick={onRun}>Run now</button>
-          </section>
-        )
-        : (
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Started</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Duration</th>
-                  <th>Results</th>
-                  <th>New</th>
-                  <th>Changed</th>
-                  <th>Pages</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map((run) => (
-                  <tr key={run.id}>
-                    <td>{formatDate(run.startedAt, timezone)}</td>
-                    <td>
-                      {run.runType === "scheduled" ? "Scheduled" : "Manual"}
-                    </td>
-                    <td>
-                      <span className={`badge ${statusTone(run.status)}`}>
-                        {statusLabel(run.status)}
-                      </span>
-                      {run.status === "failed" &&
-                        (run.errorCode || run.errorMessage) && (
-                        <details>
-                          <summary>Error details</summary>
-                          <p>
-                            {[run.errorCode, run.errorMessage].filter(Boolean)
-                              .join(": ")}
-                          </p>
-                        </details>
-                      )}
-                    </td>
-                    <td>{formatDuration(run)}</td>
-                    <td>{run.listingCount ?? "—"}</td>
-                    <td>{run.newListingCount ?? "—"}</td>
-                    <td>{run.changedCount ?? "—"}</td>
-                    <td>{run.pagesFetched ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-    </section>
-  );
-}
-
 export function WatchDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -567,7 +466,6 @@ export function WatchDetail() {
   const [listingError, setListingError] = useState(false);
   const [listingsLimit, setListingsLimit] = useState<number>(500);
   const [runError, setRunError] = useState(false);
-  const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string>();
 
   const loadWatch = useCallback(async () => {
@@ -618,26 +516,24 @@ export function WatchDetail() {
     );
   }, [refresh]);
 
-  const execute = async () => {
-    if (!id || running) return;
-    setRunning(true);
-    setMessage("Running search…");
-    try {
-      const result = await runWatch(id);
-      setMessage(
-        `${result.listingCount ?? 0} results · ${
-          result.newListingCount ?? 0
-        } new · ${result.changedCount ?? 0} changed · ${
-          result.pagesFetched ?? 0
-        } pages`,
-      );
-      await refresh();
-      refreshUnreadCount();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Run failed");
-    } finally {
-      setRunning(false);
-    }
+  const { execute: executeWatch, runningWatchId } = useRunWatch({
+    refresh,
+    onMessage: setMessage,
+    messages: {
+      start: () => "Running search…",
+      success: (result) =>
+        "skipped" in result
+          ? "Run skipped"
+          : `${result.listingCount} results · ${
+            result.newListingCount ?? 0
+          } new · ${result.changedCount ?? 0} changed · ${
+            result.pagesFetched ?? 0
+          } pages`,
+    },
+  });
+
+  const execute = () => {
+    if (id) void executeWatch(id);
   };
 
   const toggle = async () => {
@@ -706,54 +602,14 @@ export function WatchDetail() {
   return (
     <main className="detailPage">
       <Link className="backLink" to="/watches">← Saved Searches</Link>
-      <header className="detailHeader">
-        <div className="headerTitleGroup">
-          <p className="eyebrow">SAVED SEARCH</p>
-          <h1>{item.name}</h1>
-          <p className="criteria">
-            {[item.year, item.makeModel, item.part].filter(Boolean).join(" · ")}
-          </p>
-          <p className="muted">
-            {item.location || "Any location"}
-            {item.refinement?.label ? ` · ${item.refinement.label}` : ""}
-          </p>
-          <div className="badges">
-            <span className={`badge ${item.enabled ? "green" : "slate"}`}>
-              {item.enabled ? "Enabled" : "Disabled"}
-            </span>
-            <span
-              className={`badge ${item.scheduleEnabled ? "blue" : "slate"}`}
-            >
-              {item.scheduleEnabled ? "Scheduled" : "Unscheduled"}
-            </span>
-            {item.scheduleEnabled && (
-              <span className="badge blue">{frequency[item.runFrequency]}</span>
-            )}
-          </div>
-          <p className="muted">Timezone: {timezone}</p>
-        </div>
-
-        <div className="detailActions">
-          <button type="button" onClick={execute} disabled={running}>
-            {running ? "Running search…" : "Run now"}
-          </button>
-          <Link className="buttonLink quiet" to={`/watches/${item.id}/edit`}>
-            Edit
-          </Link>
-          <Link
-            className="buttonLink quiet"
-            to={`/new-parts?watchId=${item.id}`}
-          >
-            View new parts
-          </Link>
-          <button type="button" className="quiet" onClick={toggle}>
-            {item.enabled ? "Disable" : "Enable"}
-          </button>
-          <button type="button" className="danger" onClick={remove}>
-            Delete
-          </button>
-        </div>
-      </header>
+      <WatchSummary
+        item={item}
+        timezone={timezone}
+        running={Boolean(runningWatchId)}
+        onRun={execute}
+        onToggle={toggle}
+        onDelete={remove}
+      />
 
       {message && <p className="notice">{message}</p>}
       {!item.enabled && (
@@ -770,9 +626,7 @@ export function WatchDetail() {
           </strong>
           {latest && (
             <div className="statMeta">
-              <span className={`badge ${statusTone(latest.status)}`}>
-                {statusLabel(latest.status)}
-              </span>
+              <RunStatusBadge status={latest.status} />
             </div>
           )}
         </article>
@@ -817,7 +671,7 @@ export function WatchDetail() {
         retry={() => loadListings(listingsLimit)}
       />
 
-      <RunHistory
+      <WatchRunHistory
         runs={runs}
         loading={!runs && !runError}
         failed={runError}

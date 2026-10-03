@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { recentRuns, type Run, system, type Watch, watches } from "./api.ts";
 import { formatDate, formatDuration } from "./utils/format.ts";
+import { RunStatusBadge } from "./components/RunStatusBadge.tsx";
 
 type HistoryRun = Run & { watchId: string; watchName: string };
 
@@ -9,16 +10,6 @@ const duration = (run: Run) => formatDuration(run);
 
 const date = (value: string | undefined, timezone: string) =>
   formatDate(value, timezone, { includeYear: true, fallback: "—" });
-
-const label = (status: Run["status"]) =>
-  status === "succeeded"
-    ? "Succeeded"
-    : status === "failed"
-    ? "Failed"
-    : "Running";
-
-const tone = (status: Run["status"]): "green" | "red" | "amber" | "blue" =>
-  status === "succeeded" ? "green" : status === "failed" ? "red" : "amber";
 
 export function GlobalRunHistory() {
   const [params, setParams] = useSearchParams();
@@ -171,9 +162,7 @@ export function GlobalRunHistory() {
                       {run.runType === "scheduled" ? "Scheduled" : "Manual"}
                     </td>
                     <td>
-                      <span className={`badge ${tone(run.status)}`}>
-                        {label(run.status)}
-                      </span>
+                      <RunStatusBadge status={run.status} />
                       {run.status === "failed" &&
                         (run.errorCode || run.errorMessage) && (
                         <details>

@@ -13,8 +13,8 @@ import {
   notifications,
   refreshCatalog,
   refreshUnreadCount,
-  runWatch,
 } from "./api.ts";
+import { useRunWatch } from "./hooks/useRunWatch.ts";
 import { Inbox } from "./Inbox.tsx";
 import {
   BrowserRouter,
@@ -70,7 +70,6 @@ function Stat(
 export function DashboardPage() {
   const [data, setData] = useState<Dashboard>();
   const [error, setError] = useState<string>();
-  const [running, setRunning] = useState<string>();
   const [runningAll, setRunningAll] = useState(false);
   const [message, setMessage] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
@@ -88,24 +87,18 @@ export function DashboardPage() {
     load();
   }, [load]);
 
-  const execute = async (id: string) => {
-    setRunning(id);
-    setMessage(undefined);
-    try {
-      const result = await runWatch(id);
-      setMessage(
-        `${result.listingCount ?? 0} results · ${
-          result.newListingCount ?? 0
-        } new · ${result.changedCount ?? 0} changed`,
-      );
-      await load();
-      refreshUnreadCount();
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Run failed");
-    } finally {
-      setRunning(undefined);
-    }
-  };
+  const { execute, request, runningWatchId: running } = useRunWatch({
+    refresh: load,
+    onMessage: setMessage,
+    messages: {
+      success: (result) =>
+        "skipped" in result
+          ? "Run skipped"
+          : `${result.listingCount} results · ${
+            result.newListingCount ?? 0
+          } new · ${result.changedCount ?? 0} changed`,
+    },
+  });
 
   const runAllDue = async () => {
     if (!data?.watches.length || runningAll) return;
@@ -118,9 +111,11 @@ export function DashboardPage() {
     try {
       for (const target of targets) {
         try {
-          const res = await runWatch(target.id);
-          totalResults += res.listingCount ?? 0;
-          totalNew += res.newListingCount ?? 0;
+          const res = await request(target.id);
+          if (!("skipped" in res)) {
+            totalResults += res.listingCount;
+            totalNew += res.newListingCount;
+          }
         } catch {
           // continue with remaining watches
         }

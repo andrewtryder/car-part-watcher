@@ -1,56 +1,34 @@
 # Database
 
-Deno Deploy managed Prisma Postgres (`car-part-watcher-postgres`) is assigned to
-this application and injects `DATABASE_URL` plus standard `PG*` variables.
-`deno task migrate` applies ordered transactional SQL migrations and tracks them
-in `schema_migrations`; source-controlled
-`deploy.predeploy = "deno task
-migrate"` runs it before deployment. Repository
-deploy configuration takes precedence over dashboard build configuration when
-present. Local development may set `DATABASE_URL` or use a Deploy tunnel.
-`source_catalogs` stores source metadata as JSONB; `watches` stores durable,
-human-readable search intent and refinement labels. Session IDs, opaque
-interchange values, cookies, Browserless state, and selector internals are
-intentionally never persisted.
+PostgreSQL stores durable application state. `deno task migrate` applies
+ordered, transactional SQL migrations and records them in `schema_migrations`;
+deployment invokes it before release. Local development supplies `DATABASE_URL`
+directly or through a Deploy tunnel.
 
-`002_listing_reconciliation.sql` adds global `listings` (`source`, `source_key`
-unique), per-watch `watch_listings`, and `search_runs`. Deleting a watch removes
-only its relationships and runs, not the global listing. Indexes support watch
-run history and last-seen inspection.
+## Durable data
 
-## Deployment verification
+- `watches` stores search intent, scheduling, and notification policy;
+  `source_catalogs` stores source options as JSONB.
+- `listings` is global inventory keyed by `(source, source_key)`;
+  `watch_listings` records per-watch observations. Deleting a watch removes its
+  relationships and runs, not global listing history.
+- `search_runs` records manual and scheduled execution outcomes.
+- `notification_events` stores immutable facts. Each event has inbox state in
+  `notification_inbox_state` and may have channel delivery state in
+  `notification_deliveries`.
 
-Production revision `aherdknfyxzr` routed on 2026-09-13 with the
-source-controlled pre-deploy migration configuration. Build logs showed
-`Running pre-deploy command "deno task migrate"` and successful completion for
-both the Production and main-branch partitions; the rerun reported the existing
-`schema_migrations` relation and completed successfully. The subsequent catalog
-refresh succeeded, demonstrating that `schema_migrations`, `source_catalogs`,
-and `watches` are available to the application. It stored a catalog with 128
-years, 1,670 make/models, 707 parts, 96 locations, and 5 sorts. A representative
-watch was created with the human-readable
-`2.4L (Mitsubishi manufacturer), AT
-(CVT)` refinement label, edited, disabled,
-enabled, and deleted. A second temporary watch and the cached catalog remained
-available after production revision `n0x52twapy2z` routed, confirming PostgreSQL
-persistence across a revision change.
+Inbox and delivery rows cascade when their event is deleted. Delivery claiming
+is indexed by status and availability; unread inbox state is indexed separately.
+Session IDs, cookies, Browserless state, opaque interchange values, and selector
+internals are never persisted.
 
-The managed-database CLI query endpoint returned an upstream
-`databases.executeQuery` procedure-not-found error during this verification, so
-schema verification used the application’s normal persisted catalog and watch
-operations instead. No diagnostic endpoint was added.
+## Migration safety
 
-## Listing reconciliation verification
+Migrations must work for empty databases and the immediately preceding schema.
+The notification-state split preserves legacy read metadata as inbox state and
+delivery/retry metadata as delivery state while retaining legacy columns
+temporarily for deployment compatibility. Current code reads and writes only the
+separated tables.
 
-Deploy build revision `7rwq50evdqey` applied `002_listing_reconciliation.sql`. A
-temporary Accord Alternator watch ran twice through Browserless: run
-`32c2b487-69af-4f40-ba1d-17676d4fd2fd` found 177 listings across 4 pages and
-created 177 watch/listing relationships in 24.2 s; run
-`7c88e545-54f7-40ee-9728-5a8d524cfd11` found the same 177 listings across 4
-pages in 23.7 s with zero new relationships and 21 mutable updates. The
-temporary watch was deleted afterwards; global listing history was retained.
-
-`003_scheduling_notification_outbox.sql` adds watch scheduling/initial-notify
-policy, scheduled run keys, and the `notification_events` durable outbox. Outbox
-events are unique per search run/listing/event type and are indexed for safe
-pending-event claiming.
+Historical deployment evidence is in
+[history/production-verification.md](history/production-verification.md).

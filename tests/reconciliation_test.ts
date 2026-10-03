@@ -10,7 +10,8 @@ import {
 } from "../src/reconciliation.ts";
 import { executeWatch } from "../src/services/reconciliation_service.ts";
 import type { NormalizedListing } from "../src/listing_normalizer.ts";
-import type { SpikeResult } from "../src/types.ts";
+import type { CarPartSearchResult } from "../src/types.ts";
+import type { CarPartSearchClient } from "../src/search/car_part_search_client.ts";
 import { getDatabase } from "../src/db/database.ts";
 import { saveWatch, type Watch } from "../src/repositories/watch_repository.ts";
 
@@ -54,6 +55,26 @@ const sampleListing2: NormalizedListing = {
   },
 };
 
+function fakeSearchClient(
+  result?: CarPartSearchResult,
+): CarPartSearchClient {
+  return {
+    search: () =>
+      result
+        ? Promise.resolve(result)
+        : Promise.reject(new Error("Search should not run")),
+    resolveRefinement: () => Promise.resolve({ status: "ready" }),
+    loadCatalog: () =>
+      Promise.resolve({
+        years: [],
+        makeModels: [],
+        parts: [],
+        locations: [],
+        sorts: [],
+      }),
+  };
+}
+
 Deno.test("deduplicateNormalized keeps distinct listings", () => {
   const result = deduplicateNormalized([sampleListing1, sampleListing2]);
   assertEquals(result.length, 2);
@@ -89,7 +110,11 @@ const databaseUrl = hasEnv ? Deno.env.get("DATABASE_URL") : undefined;
 if (databaseUrl) {
   Deno.test("integration: executeWatch throws for non-existent watch", async () => {
     await assertRejects(
-      () => executeWatch("00000000-0000-0000-0000-000000000000"),
+      () =>
+        executeWatch(
+          fakeSearchClient(),
+          "00000000-0000-0000-0000-000000000000",
+        ),
       Error,
       "Watch not found",
     );
@@ -112,7 +137,7 @@ if (databaseUrl) {
     };
     await saveWatch(testWatch);
     try {
-      const summary = await executeWatch(testWatch.id, {
+      const summary = await executeWatch(fakeSearchClient(), testWatch.id, {
         runType: "scheduled",
         scheduledKey: `watch:${testWatch.id}:test`,
       });
@@ -142,7 +167,7 @@ if (databaseUrl) {
     };
     await saveWatch(testWatch);
 
-    const fakeResult: SpikeResult = {
+    const fakeResult: CarPartSearchResult = {
       search: {
         year: "2015",
         makeModel: "Honda Accord",
@@ -168,10 +193,13 @@ if (databaseUrl) {
     const sql = getDatabase();
     try {
       // First run (baseline - notifyOnInitialRun=false)
-      const summary1 = await executeWatch(testWatch.id, {
-        runType: "manual",
-        searchRunner: () => Promise.resolve(fakeResult),
-      });
+      const summary1 = await executeWatch(
+        fakeSearchClient(fakeResult),
+        testWatch.id,
+        {
+          runType: "manual",
+        },
+      );
 
       assertExists(summary1);
       assertEquals(summary1.status, "succeeded");
@@ -186,10 +214,13 @@ if (databaseUrl) {
       assertEquals(baselineEvents.length, 0);
 
       // Repeat run with same data
-      const summary2 = await executeWatch(testWatch.id, {
-        runType: "manual",
-        searchRunner: () => Promise.resolve(fakeResult),
-      });
+      const summary2 = await executeWatch(
+        fakeSearchClient(fakeResult),
+        testWatch.id,
+        {
+          runType: "manual",
+        },
+      );
 
       assertExists(summary2);
       assertEquals(summary2.status, "succeeded");
@@ -197,7 +228,7 @@ if (databaseUrl) {
       assertEquals(summary2.changedCount, 0);
 
       // Repeat run with modified price -> triggers listing_updated event
-      const modifiedResult: SpikeResult = {
+      const modifiedResult: CarPartSearchResult = {
         ...fakeResult,
         results: {
           ...fakeResult.results,
@@ -208,10 +239,13 @@ if (databaseUrl) {
         },
       };
 
-      const summary3 = await executeWatch(testWatch.id, {
-        runType: "manual",
-        searchRunner: () => Promise.resolve(modifiedResult),
-      });
+      const summary3 = await executeWatch(
+        fakeSearchClient(modifiedResult),
+        testWatch.id,
+        {
+          runType: "manual",
+        },
+      );
 
       assertExists(summary3);
       assertEquals(summary3.status, "succeeded");
@@ -220,15 +254,15 @@ if (databaseUrl) {
 
       // Verify listing_updated event was created in outbox
       const updateEvents = await sql`
-        select * from notification_events
-        where watch_id = ${testWatch.id} and event_type = 'listing_updated'
+        select e.*, d.status, d.processed_at from notification_events e join notification_deliveries d on d.event_id=e.id
+        where e.watch_id = ${testWatch.id} and e.event_type = 'listing_updated'
       `;
       assertEquals(updateEvents.length, 1);
       assertEquals(updateEvents[0].status, "delivered");
       assertExists(updateEvents[0].processed_at);
 
       // Verify delivery policy: suppressing updated listings
-      const modifiedResult2: SpikeResult = {
+      const modifiedResult2: CarPartSearchResult = {
         ...fakeResult,
         results: {
           ...fakeResult.results,
@@ -239,18 +273,21 @@ if (databaseUrl) {
         },
       };
 
-      const summary4 = await executeWatch(testWatch.id, {
-        runType: "manual",
-        searchRunner: () => Promise.resolve(modifiedResult2),
-        notificationPolicy: { notifyUpdatedListings: false },
-      });
+      const summary4 = await executeWatch(
+        fakeSearchClient(modifiedResult2),
+        testWatch.id,
+        {
+          runType: "manual",
+          notificationPolicy: { notifyUpdatedListings: false },
+        },
+      );
 
       assertExists(summary4);
       assertEquals(summary4.changedCount, 1);
       // No additional update event added
       const updateEventsAfterPolicy = await sql`
-        select * from notification_events
-        where watch_id = ${testWatch.id} and event_type = 'listing_updated'
+        select e.*, d.status, d.processed_at from notification_events e join notification_deliveries d on d.event_id=e.id
+        where e.watch_id = ${testWatch.id} and e.event_type = 'listing_updated'
       `;
       assertEquals(updateEventsAfterPolicy.length, 1);
     } finally {
@@ -282,7 +319,7 @@ if (databaseUrl) {
     };
     await saveWatch(testWatch);
 
-    const fakeResult: SpikeResult = {
+    const fakeResult: CarPartSearchResult = {
       search: {
         year: "2015",
         makeModel: "Honda Accord",
@@ -307,18 +344,21 @@ if (databaseUrl) {
 
     const sql = getDatabase();
     try {
-      const summary = await executeWatch(testWatch.id, {
-        runType: "manual",
-        searchRunner: () => Promise.resolve(fakeResult),
-      });
+      const summary = await executeWatch(
+        fakeSearchClient(fakeResult),
+        testWatch.id,
+        {
+          runType: "manual",
+        },
+      );
 
       assertExists(summary);
       assertEquals(summary.newListingCount, 1);
 
       // Verify new_listing event is created on initial run
       const events = await sql`
-        select * from notification_events
-        where watch_id = ${testWatch.id} and event_type = 'new_listing'
+        select e.*, d.status, d.processed_at from notification_events e join notification_deliveries d on d.event_id=e.id
+        where e.watch_id = ${testWatch.id} and e.event_type = 'new_listing'
       `;
       assertEquals(events.length, 1);
       assertEquals(events[0].status, "delivered");
@@ -350,7 +390,7 @@ if (databaseUrl) {
     };
     await saveWatch(testWatch);
 
-    const fakeResult: SpikeResult = {
+    const fakeResult: CarPartSearchResult = {
       search: {
         year: "2015",
         makeModel: "Honda Accord",
@@ -369,18 +409,20 @@ if (databaseUrl) {
     const sql = getDatabase();
     try {
       // First attempt with scheduledKey starts a run (will fail search since listings empty, but run is recorded)
-      await executeWatch(testWatch.id, {
+      await executeWatch(fakeSearchClient(fakeResult), testWatch.id, {
         runType: "scheduled",
         scheduledKey,
-        searchRunner: () => Promise.resolve(fakeResult),
       }).catch(() => undefined); // throws because unique.size === 0
 
       // Second attempt with exact same scheduledKey should immediately return undefined without starting a new run
-      const res2 = await executeWatch(testWatch.id, {
-        runType: "scheduled",
-        scheduledKey,
-        searchRunner: () => Promise.resolve(fakeResult),
-      });
+      const res2 = await executeWatch(
+        fakeSearchClient(fakeResult),
+        testWatch.id,
+        {
+          runType: "scheduled",
+          scheduledKey,
+        },
+      );
       assertEquals(res2, undefined);
     } finally {
       await sql`delete from search_runs where watch_id=${testWatch.id}`;

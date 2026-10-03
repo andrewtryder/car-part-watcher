@@ -1,6 +1,5 @@
 import {
   deleteWatch,
-  executeWatch,
   getWatch,
   listRecentSearchRuns,
   listSearchRuns,
@@ -10,7 +9,15 @@ import {
   saveWatch,
   validateWatch,
 } from "../services/watch_service.ts";
+import { executeWatch } from "../services/reconciliation_service.ts";
+import type { CarPartSearchClient } from "../search/car_part_search_client.ts";
 import type { CarPartSearchRequest } from "../types.ts";
+import type {
+  RecentRunDto,
+  RunDto,
+  RunWatchResponseDto,
+} from "../contracts/runs.ts";
+import type { WatchDto, WatchListingDto } from "../contracts/watches.ts";
 import { json, parseLimitParam } from "./errors.ts";
 
 export function parseSearchRequest(
@@ -49,20 +56,23 @@ export function parseWatchDraft(
 }
 
 export async function handleListWatches(): Promise<Response> {
-  return json(await listWatches());
+  return json<WatchDto[]>(await listWatches());
 }
 
 export async function handleListRecentRuns(url: URL): Promise<Response> {
-  return json(
+  return json<RecentRunDto[]>(
     await listRecentSearchRuns(
       parseLimitParam(url.searchParams.get("limit"), 50, 100),
     ),
   );
 }
 
-export async function handleResolveWatch(req: Request): Promise<Response> {
+export async function handleResolveWatch(
+  req: Request,
+  searchClient: CarPartSearchClient,
+): Promise<Response> {
   const body = (await req.json()) as Record<string, unknown>;
-  return json(await resolveWatch(parseSearchRequest(body)));
+  return json(await resolveWatch(searchClient, parseSearchRequest(body)));
 }
 
 export async function handleCreateWatch(req: Request): Promise<Response> {
@@ -72,10 +82,17 @@ export async function handleCreateWatch(req: Request): Promise<Response> {
   return json(await saveWatch(draft), 201);
 }
 
-export async function handleRunWatch(id: string): Promise<Response> {
-  const run = await executeWatch(id, { maxRunTimeMs: 120_000 });
+export async function handleRunWatch(
+  id: string,
+  searchClient: CarPartSearchClient,
+  signal?: AbortSignal,
+): Promise<Response> {
+  const run = await executeWatch(searchClient, id, {
+    maxRunTimeMs: 120_000,
+    signal,
+  });
   return run
-    ? json({
+    ? json<RunWatchResponseDto>({
       ...run,
       newListings: run.newListings.map((listing) => ({
         year: listing.year,
@@ -89,11 +106,11 @@ export async function handleRunWatch(id: string): Promise<Response> {
         recyclerLocation: listing.recyclerLocation,
       })),
     })
-    : json({ skipped: true });
+    : json<RunWatchResponseDto>({ skipped: true });
 }
 
 export async function handleListWatchRuns(id: string): Promise<Response> {
-  return json(await listSearchRuns(id));
+  return json<RunDto[]>(await listSearchRuns(id));
 }
 
 export async function handleListWatchListings(
@@ -103,7 +120,7 @@ export async function handleListWatchListings(
   if (!await getWatch(id)) {
     return json({ error: "Not found" }, 404);
   }
-  return json(
+  return json<WatchListingDto[]>(
     await listWatchListings(
       id,
       parseLimitParam(url.searchParams.get("limit"), 500, 1000),
@@ -113,7 +130,7 @@ export async function handleListWatchListings(
 
 export async function handleGetWatch(id: string): Promise<Response> {
   const watch = await getWatch(id);
-  return watch ? json(watch) : json({ error: "Not found" }, 404);
+  return watch ? json<WatchDto>(watch) : json({ error: "Not found" }, 404);
 }
 
 export async function handleUpdateWatch(
@@ -125,7 +142,9 @@ export async function handleUpdateWatch(
   const body = (await req.json()) as Record<string, unknown>;
   const draft = parseWatchDraft(body, existing);
   await validateWatch(draft);
-  return json(await saveWatch(draft));
+  const saved = await saveWatch(draft);
+  if (!saved) throw new Error("Watch not found");
+  return json<WatchDto>(saved);
 }
 
 export async function handleDeleteWatch(id: string): Promise<Response> {

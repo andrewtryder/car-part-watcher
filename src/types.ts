@@ -43,7 +43,7 @@ export interface CarPartListing {
   quoteUrl?: string;
 }
 
-export interface SpikeResult {
+export interface CarPartSearchResult {
   search: CarPartSearchRequest;
   refinement?: { selected: string; available: string[] };
   results: {
@@ -54,6 +54,13 @@ export interface SpikeResult {
   };
   timings?: SearchTimings;
   runtimeInfo?: BrowserRuntimeInfo;
+}
+
+export interface SearchExecutionOptions {
+  signal?: AbortSignal;
+  onPage?: (
+    page: { number: number; listings: CarPartListing[]; url: string },
+  ) => void;
 }
 
 export interface SearchTimings {
@@ -76,7 +83,7 @@ export interface BrowserRuntimeInfo {
   display: boolean;
 }
 
-export type SpikeErrorCode =
+export type CarPartSearchErrorCode =
   | "SEARCH_OPTION_NOT_FOUND"
   | "REFINEMENT_REQUIRED"
   | "REFINEMENT_OPTION_NOT_FOUND"
@@ -95,11 +102,12 @@ export type SpikeErrorCode =
   | "REMOTE_CDP_CONNECTION_FAILED"
   | "REMOTE_BROWSER_DISCONNECTED"
   | "REMOTE_BROWSER_TIMEOUT"
-  | "RUN_TIMEOUT";
+  | "RUN_TIMEOUT"
+  | "RUN_CANCELLED";
 
-export class SpikeError extends Error {
+export class CarPartSearchError extends Error {
   constructor(
-    public readonly code: SpikeErrorCode,
+    public readonly code: CarPartSearchErrorCode,
     message: string,
     public readonly details?: unknown,
   ) {

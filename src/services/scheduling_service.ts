@@ -1,6 +1,7 @@
 import { listScheduledWatches } from "../repositories/watch_repository.ts";
 import { recoverStaleRuns } from "../repositories/search_run_repository.ts";
 import { executeWatch } from "./reconciliation_service.ts";
+import type { CarPartSearchClient } from "../search/car_part_search_client.ts";
 
 export type ScheduleSlot = "morning" | "afternoon" | "evening";
 const slotHours: Record<ScheduleSlot, number> = {
@@ -27,6 +28,7 @@ export function localSlot(date = new Date()): { date: string; hour: number } {
   };
 }
 export async function scheduledWatchDispatcher(
+  searchClient: CarPartSearchClient,
   slot: ScheduleSlot,
   now = new Date(),
 ) {
@@ -46,7 +48,7 @@ export async function scheduledWatchDispatcher(
   let failed = 0;
   for (const watch of watches) {
     try {
-      const result = await executeWatch(watch.id, {
+      const result = await executeWatch(searchClient, watch.id, {
         runType: "scheduled",
         scheduledKey: `watch:${watch.id}:${local.date}:${slot}`,
         scheduleSlot: slot,
