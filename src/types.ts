@@ -56,6 +56,13 @@ export interface CarPartSearchResult {
   runtimeInfo?: BrowserRuntimeInfo;
 }
 
+export interface SearchExecutionOptions {
+  signal?: AbortSignal;
+  onPage?: (
+    page: { number: number; listings: CarPartListing[]; url: string },
+  ) => void;
+}
+
 export interface SearchTimings {
   sessionCreateMs?: number;
   cdpConnectMs?: number;
@@ -95,7 +102,8 @@ export type CarPartSearchErrorCode =
   | "REMOTE_CDP_CONNECTION_FAILED"
   | "REMOTE_BROWSER_DISCONNECTED"
   | "REMOTE_BROWSER_TIMEOUT"
-  | "RUN_TIMEOUT";
+  | "RUN_TIMEOUT"
+  | "RUN_CANCELLED";
 
 export class CarPartSearchError extends Error {
   constructor(

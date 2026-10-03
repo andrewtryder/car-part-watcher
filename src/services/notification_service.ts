@@ -280,7 +280,7 @@ export async function processNotificationOutbox(
         `[notification_payload_invalid] outboxId=${row.id} eventType=${row.eventType} error=${message}`,
       );
       await markFailed(
-        row.id,
+        row.deliveryId,
         row.attempts,
         "NOTIFICATION_PAYLOAD_INVALID",
         message,
@@ -295,7 +295,7 @@ export async function processNotificationOutbox(
         `[notification_outbox_claimed] eventId=${canonicalEvent.eventId} outboxId=${row.id}`,
       );
       await selectedNotifier.deliver(canonicalEvent);
-      await markDelivered(row.id);
+      await markDelivered(row.deliveryId);
       console.log(
         `[notification_delivered] eventId=${canonicalEvent.eventId} outboxId=${row.id}`,
       );
@@ -311,7 +311,7 @@ export async function processNotificationOutbox(
         deliverErr && typeof deliverErr === "object" && "code" in deliverErr
           ? String((deliverErr as { code: unknown }).code)
           : "NOTIFIER_FAILED";
-      await markFailed(row.id, row.attempts, code, message);
+      await markFailed(row.deliveryId, row.attempts, code, message);
       failed++;
     }
   }

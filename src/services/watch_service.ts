@@ -1,5 +1,3 @@
-import { discoverCarPartRefinement } from "../browser/car_part_browser.ts";
-import { BrowserlessBrowserProvider } from "../browser/browserless_browser_provider.ts";
 import { getCatalog } from "../repositories/catalog_repository.ts";
 import {
   deleteWatch,
@@ -9,7 +7,10 @@ import {
   type Watch,
 } from "../repositories/watch_repository.ts";
 import type { CarPartSearchRequest, SelectOption } from "../types.ts";
-import { executeWatch } from "./reconciliation_service.ts";
+import type {
+  CarPartRefinementResult,
+  CarPartSearchClient,
+} from "../search/car_part_search_client.ts";
 import {
   listRecentSearchRuns,
   listSearchRuns,
@@ -35,15 +36,14 @@ export async function validateWatch(
     throw new Error("Postal code is required when sorting by distance");
   }
 }
-export async function resolveWatch(request: CarPartSearchRequest) {
-  return await discoverCarPartRefinement(
-    new BrowserlessBrowserProvider(),
-    request,
-  );
+export async function resolveWatch(
+  searchClient: CarPartSearchClient,
+  request: CarPartSearchRequest,
+): Promise<CarPartRefinementResult> {
+  return await searchClient.resolveRefinement(request);
 }
 export {
   deleteWatch,
-  executeWatch,
   getWatch,
   listRecentSearchRuns,
   listSearchRuns,

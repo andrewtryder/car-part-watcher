@@ -7,6 +7,9 @@ import {
 } from "../src/http/watch_handlers.ts";
 import { ListingIdentityCollisionError } from "../src/reconciliation.ts";
 import { CarPartSearchError } from "../src/types.ts";
+import type { CarPartSearchClient } from "../src/search/car_part_search_client.ts";
+
+const unusedSearchClient = {} as CarPartSearchClient;
 
 Deno.test("parseLimitParam sanitizes bounds and fallbacks", () => {
   assertEquals(parseLimitParam(null, 50, 100), 50);
@@ -77,6 +80,11 @@ Deno.test("mapErrorToResponse maps CarPartSearchErrors to appropriate gateway/ti
   );
   assertEquals(challengeRes.status, 503);
 
+  const cancelledRes = mapErrorToResponse(
+    new CarPartSearchError("RUN_CANCELLED", "Request cancelled"),
+  );
+  assertEquals(cancelledRes.status, 499);
+
   const refinementRes = mapErrorToResponse(
     new CarPartSearchError("REFINEMENT_REQUIRED", "Please select option"),
   );
@@ -105,7 +113,7 @@ Deno.test("mapErrorToResponse maps standard errors to 404, 400, or 500", () => {
 
 Deno.test("routeRequest returns 404 for unknown api endpoint", async () => {
   const req = new Request("https://example.test/api/unknown-endpoint");
-  const res = await routeRequest(req);
+  const res = await routeRequest(req, unusedSearchClient);
   assertEquals(res.status, 404);
   const data = await res.json();
   assertEquals(data.error, "Not found");
@@ -113,6 +121,6 @@ Deno.test("routeRequest returns 404 for unknown api endpoint", async () => {
 
 Deno.test("routeRequest blocks directory traversal attempts", async () => {
   const req = new Request("https://example.test/../secret.txt");
-  const res = await routeRequest(req);
+  const res = await routeRequest(req, unusedSearchClient);
   assertEquals(res.status, 404);
 });

@@ -6,12 +6,43 @@ export interface ConsoleAuthConfig {
   password?: string;
 }
 
-export function consoleAuthConfig(): ConsoleAuthConfig {
+export interface ConsoleAuthEnvironment {
+  get(name: string): string | undefined;
+}
+
+export function consoleAuthConfig(
+  environment: ConsoleAuthEnvironment = Deno.env,
+): ConsoleAuthConfig {
   return {
-    enabled: Deno.env.get("CONSOLE_AUTH_ENABLED")?.toLowerCase() === "true",
-    username: Deno.env.get("CONSOLE_USERNAME"),
-    password: Deno.env.get("CONSOLE_PASSWORD"),
+    enabled: environment.get("CONSOLE_AUTH_ENABLED")?.toLowerCase() === "true",
+    username: environment.get("CONSOLE_USERNAME"),
+    password: environment.get("CONSOLE_PASSWORD"),
   };
+}
+
+/**
+ * Validates console access before the server starts. APP_ENV is the explicit
+ * application setting; DENO_DEPLOYMENT_ID additionally protects Deploy previews
+ * from accidentally starting with development access controls.
+ */
+export function validateConsoleAuthConfig(
+  environment: ConsoleAuthEnvironment = Deno.env,
+): ConsoleAuthConfig {
+  const config = consoleAuthConfig(environment);
+  const deployed = Boolean(environment.get("DENO_DEPLOYMENT_ID"));
+  const production = environment.get("APP_ENV") === "production" || deployed;
+
+  if (production && !config.enabled) {
+    throw new Error(
+      "Console authentication must be enabled in production or deployed environments.",
+    );
+  }
+  if (config.enabled && (!config.username || !config.password)) {
+    throw new Error(
+      "Console authentication requires CONSOLE_USERNAME and CONSOLE_PASSWORD.",
+    );
+  }
+  return config;
 }
 
 function unauthorized() {

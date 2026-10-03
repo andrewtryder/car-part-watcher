@@ -1,6 +1,7 @@
 import { assertEquals } from "jsr:@std/assert@1.0.19";
 import {
   authorizeConsoleRequest,
+  validateConsoleAuthConfig,
   withConsoleAuthentication,
 } from "../src/console_auth.ts";
 
@@ -16,6 +17,52 @@ const request = (path: string, authorization?: string, method = "GET") =>
   });
 const basic = (username = config.username, password = config.password) =>
   `Basic ${btoa(`${username}:${password}`)}`;
+const environment = (values: Record<string, string | undefined>) => ({
+  get: (name: string) => values[name],
+});
+
+Deno.test("startup validation permits explicitly disabled local auth", () => {
+  assertEquals(
+    validateConsoleAuthConfig(environment({ APP_ENV: "development" })),
+    { enabled: false, username: undefined, password: undefined },
+  );
+});
+
+Deno.test("startup validation requires complete authentication configuration", () => {
+  assertEquals(
+    validateConsoleAuthConfig(environment({
+      APP_ENV: "production",
+      CONSOLE_AUTH_ENABLED: "true",
+      CONSOLE_USERNAME: "operator",
+      CONSOLE_PASSWORD: "test-password",
+    })),
+    config,
+  );
+  for (
+    const values of [
+      {
+        CONSOLE_AUTH_ENABLED: "true",
+        CONSOLE_PASSWORD: "test-password",
+      },
+      {
+        CONSOLE_AUTH_ENABLED: "true",
+        CONSOLE_USERNAME: "operator",
+      },
+      { APP_ENV: "production", CONSOLE_AUTH_ENABLED: "false" },
+      { DENO_DEPLOYMENT_ID: "deployment", CONSOLE_AUTH_ENABLED: "false" },
+    ]
+  ) {
+    let failed = false;
+    try {
+      validateConsoleAuthConfig(environment(values));
+    } catch (error) {
+      failed = error instanceof Error &&
+        !error.message.includes("operator") &&
+        !error.message.includes("test-password");
+    }
+    assertEquals(failed, true);
+  }
+});
 
 Deno.test("health is public while the root requires valid Basic credentials", async () => {
   let reached = false;
@@ -59,6 +106,7 @@ Deno.test("administrative API and mutation requests stop before their handlers",
   };
   for (
     const entry of [
+      request("/assets/index.js"),
       request("/api/dashboard"),
       request("/api/catalog/refresh", undefined, "POST"),
       request("/api/watches/id/run", undefined, "POST"),

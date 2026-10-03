@@ -1,20 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   type Catalog,
   catalog,
   dashboard,
   deleteWatch,
-  refreshUnreadCount,
   resolveWatch,
-  runWatch,
   saveWatch,
-  type SelectOption,
   type Watch,
   watch,
   type WatchDraft,
   watches,
 } from "./api.ts";
+import { useRunWatch } from "./hooks/useRunWatch.ts";
+import { SearchSelect } from "./components/watches/SearchSelect.tsx";
 import { formatDate } from "./utils/format.ts";
 
 const frequencies: Record<number, string> = {
@@ -38,60 +37,6 @@ const emptyDraft: WatchDraft = {
   notifyOnInitialRun: false,
 };
 
-const optionValue = (option: SelectOption) => option.value || option.label;
-const inputValue = (options: SelectOption[], value: string) =>
-  options.find((option) => option.value === value)?.label ?? value;
-
-function SearchSelect({
-  id,
-  label,
-  value,
-  options,
-  onChange,
-  required = false,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  options: SelectOption[];
-  onChange: (value: string) => void;
-  required?: boolean;
-}) {
-  const listId = `${id}-options`;
-  const visible = useMemo(() => {
-    const needle = value.toLowerCase();
-    return options.filter((option) =>
-      option.label.toLowerCase().includes(needle)
-    )
-      .slice(0, 80);
-  }, [options, value]);
-
-  return (
-    <label htmlFor={id}>
-      {label}
-      <input
-        id={id}
-        list={listId}
-        value={inputValue(options, value)}
-        onChange={(event) => {
-          const typed = event.target.value;
-          const matched = options.find((option) =>
-            option.label === typed || option.value === typed
-          );
-          onChange(matched ? optionValue(matched) : typed);
-        }}
-        required={required}
-        autoComplete="off"
-      />
-      <datalist id={listId}>
-        {visible.map((option) => (
-          <option key={option.value} value={option.label} />
-        ))}
-      </datalist>
-    </label>
-  );
-}
-
 function payload(draft: WatchDraft): WatchDraft {
   return {
     ...draft,
@@ -109,10 +54,9 @@ function fromWatch(value: Watch): WatchDraft {
 export function WatchList() {
   const [items, setItems] = useState<Watch[]>();
   const [lastRuns, setLastRuns] = useState<Record<string, string>>({});
-  const [running, setRunning] = useState<string>();
   const [message, setMessage] = useState<string>();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [loaded, board] = await Promise.all([watches(), dashboard()]);
       setItems(loaded);
@@ -128,7 +72,7 @@ export function WatchList() {
           : "Could not load saved searches",
       );
     }
-  };
+  }, []);
 
   useEffect(() => {
     load();
@@ -159,23 +103,30 @@ export function WatchList() {
     }
   };
 
-  const execute = async (item: Watch) => {
-    setRunning(item.id);
-    setMessage(`Running ${item.name}…`);
-    try {
-      const result = await runWatch(item.id);
-      setMessage(
-        `${item.name}: ${result.listingCount ?? 0} results · ${
-          result.newListingCount ?? 0
-        } new · ${result.changedCount ?? 0} changed`,
-      );
-      await load();
-      refreshUnreadCount();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Run failed");
-    } finally {
-      setRunning(undefined);
-    }
+  const { execute: executeWatch, runningWatchId: running } = useRunWatch({
+    refresh: load,
+    onMessage: setMessage,
+    messages: {
+      start: (watchId) => {
+        const item = items?.find((value) => value.id === watchId);
+        return item ? `Running ${item.name}…` : "Running search…";
+      },
+      success: (result, watchId) => {
+        const item = items?.find((value) => value.id === watchId);
+        const name = item?.name ?? "Saved search";
+        return (
+          "skipped" in result
+            ? `${name}: run skipped`
+            : `${name}: ${result.listingCount} results · ${
+              result.newListingCount ?? 0
+            } new · ${result.changedCount ?? 0} changed`
+        );
+      },
+    },
+  });
+
+  const execute = (item: Watch) => {
+    void executeWatch(item.id);
   };
 
   return (
@@ -471,7 +422,7 @@ export function WatchForm() {
             >
               <option value="">Select sort order</option>
               {options.sorts.map((option) => (
-                <option key={option.value} value={optionValue(option)}>
+                <option key={option.value} value={option.value || option.label}>
                   {option.label}
                 </option>
               ))}

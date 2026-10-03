@@ -111,7 +111,7 @@ export async function listRecentSearchRuns(limit = 50) {
     const r = row as unknown as SearchRunRow;
     return {
       ...mapSearchRun(r),
-      watchName: r.watch_name,
+      watchName: r.watch_name ?? "",
       runType: r.run_type ?? undefined,
     };
   });

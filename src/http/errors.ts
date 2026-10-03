@@ -1,8 +1,9 @@
 import { ListingIdentityCollisionError } from "../reconciliation.ts";
 import { CarPartSearchError } from "../types.ts";
 
-export const json = (body: unknown, status = 200) =>
-  Response.json(body, { status });
+export function json<T>(body: T, status = 200): Response {
+  return Response.json(body, { status });
+}
 
 export function parseLimitParam(
   param: string | null,
@@ -31,6 +32,9 @@ export function mapErrorToResponse(error: unknown): Response {
       case "RUN_TIMEOUT":
       case "REMOTE_BROWSER_TIMEOUT":
         status = 504;
+        break;
+      case "RUN_CANCELLED":
+        status = 499;
         break;
       case "ACCESS_CHALLENGE":
         status = 503;

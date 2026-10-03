@@ -14,7 +14,11 @@ import {
   processNotificationOutbox,
 } from "../src/services/notification_service.ts";
 import {
+  createListingUpdatedEvent,
   createNewListingEvent,
+  listInboxNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
 } from "../src/repositories/notification_repository.ts";
 import { createSearchRun } from "../src/repositories/search_run_repository.ts";
 import { getDatabase } from "../src/db/database.ts";
@@ -157,6 +161,149 @@ const hasEnv =
 const databaseUrl = hasEnv ? Deno.env.get("DATABASE_URL") : undefined;
 
 if (databaseUrl) {
+  Deno.test("integration: inbox events remain visible without email deliveries", async () => {
+    const sql = getDatabase();
+    const watchA = crypto.randomUUID(),
+      watchB = crypto.randomUUID(),
+      watchC = crypto.randomUUID();
+    const watches = [watchA, watchB, watchC];
+    const runs: string[] = [], listings: string[] = [], events: string[] = [];
+    let sequence = 0;
+    const seed = async (
+      watchId: string,
+      eventType: "new_listing" | "listing_updated",
+      delivery?: "pending" | "delivered" | "failed",
+      read = false,
+    ) => {
+      const runId = crypto.randomUUID(),
+        listingId = crypto.randomUUID(),
+        eventId = crypto.randomUUID();
+      runs.push(runId);
+      listings.push(listingId);
+      events.push(eventId);
+      await sql`insert into listings (id,source,source_key,year,make_model,part,first_seen_at,last_seen_at) values (${listingId},'car-part',${`inbox-${sequence++}`},'2015','Honda Accord','Alternator',now(),now())`;
+      await sql`insert into search_runs (id,watch_id,status,started_at,run_type) values (${runId},${watchId},'succeeded',now(),'manual')`;
+      const input = {
+        id: eventId,
+        watchId,
+        searchRunId: runId,
+        listingId,
+        payload: { version: 1 },
+        createDelivery: Boolean(delivery),
+      };
+      if (eventType === "new_listing") await createNewListingEvent(sql, input);
+      else await createListingUpdatedEvent(sql, input);
+      if (delivery) {
+        await sql`update notification_deliveries set status=${delivery} where event_id=${eventId}`;
+      }
+      if (read) await markNotificationRead(eventId);
+      return eventId;
+    };
+
+    try {
+      for (const watchId of watches) {
+        await sql`insert into watches (id,name,year,make_model,part,sort) values (${watchId},${`Inbox ${watchId}`},'2015','Honda Accord','Alternator','price')`;
+      }
+
+      // More matching unread events than the page size, all without deliveries.
+      for (let index = 0; index < 55; index++) {
+        await seed(watchA, index === 0 ? "listing_updated" : "new_listing");
+      }
+      const watchBNew = await seed(watchB, "new_listing");
+      const watchBUpdated = await seed(watchB, "listing_updated");
+
+      const pending = await seed(watchC, "new_listing", "pending");
+      const delivered = await seed(watchC, "new_listing", "delivered");
+      const deliverylessUnread = await seed(watchC, "listing_updated");
+      await seed(watchC, "new_listing", undefined, true);
+      await seed(watchC, "listing_updated", "failed", true);
+
+      const page = await listInboxNotifications({
+        watchId: watchA,
+        unread: true,
+        limit: 20,
+      });
+      assertEquals(page.items.length, 20);
+      assertEquals(page.unreadCount, 55);
+      assertEquals(page.items.every((event) => !event.deliveryId), true);
+
+      const watchBItems = await listInboxNotifications({
+        watchId: watchB,
+        unread: true,
+      });
+      assertEquals(
+        watchBItems.items.map((event) => event.id).sort(),
+        [
+          watchBNew,
+          watchBUpdated,
+        ].sort(),
+      );
+      assertEquals(watchBItems.unreadCount, 2);
+      assertEquals(watchBItems.items.every((event) => !event.deliveryId), true);
+
+      const updated = await listInboxNotifications({
+        watchId: watchB,
+        eventType: "listing_updated",
+        unread: true,
+      });
+      assertEquals(updated.items.map((event) => event.id), [watchBUpdated]);
+      assertEquals(updated.unreadCount, 1);
+
+      const mixedUnread = await listInboxNotifications({ watchId: watchC });
+      assertEquals(
+        mixedUnread.items.map((event) => event.id).sort(),
+        [
+          pending,
+          delivered,
+          deliverylessUnread,
+        ].sort(),
+      );
+      assertEquals(mixedUnread.unreadCount, 3);
+      assertEquals(
+        mixedUnread.items.find((event) => event.id === deliverylessUnread)
+          ?.status,
+        undefined,
+      );
+      const mixedAll = await listInboxNotifications({
+        watchId: watchC,
+        unread: false,
+      });
+      assertEquals(mixedAll.items.length, 5);
+      assertEquals(mixedAll.unreadCount, 3);
+
+      await markNotificationRead(deliverylessUnread);
+      assertEquals(
+        (await listInboxNotifications({ watchId: watchC })).items.some((
+          event,
+        ) => event.id === deliverylessUnread),
+        false,
+      );
+      assertEquals(
+        (await listInboxNotifications({ watchId: watchC, unread: false })).items
+          .some((event) => event.id === deliverylessUnread),
+        true,
+      );
+      const deliveries =
+        await sql`select id from notification_deliveries where event_id=${deliverylessUnread}`;
+      assertEquals(deliveries.length, 0);
+      await markAllNotificationsRead(watchB);
+      assertEquals(
+        (await listInboxNotifications({ watchId: watchB })).items.length,
+        0,
+      );
+      assertEquals(
+        (await listInboxNotifications({ watchId: watchB, unread: false })).items
+          .length,
+        2,
+      );
+    } finally {
+      await sql`delete from notification_events where id in ${sql(events)}`;
+      await sql`delete from search_runs where id in ${sql(runs)}`;
+      await sql`delete from watches where id in ${sql(watches)}`;
+      await sql`delete from listings where id in ${sql(listings)}`;
+    }
+  });
+
   Deno.test("integration: invalid payload fails validation and is NOT delivered", async () => {
     const sql = getDatabase();
     const watchId = crypto.randomUUID();
@@ -194,7 +341,7 @@ if (databaseUrl) {
 
       // Verify the event in DB is marked 'failed' with NOTIFICATION_PAYLOAD_INVALID
       const rows =
-        await sql`select status, last_error_code, processed_at from notification_events where id=${eventId}`;
+        await sql`select status, last_error_code, processed_at from notification_deliveries where event_id=${eventId}`;
       assertEquals(rows.length, 1);
       assertEquals(rows[0].status, "failed");
       assertEquals(rows[0].last_error_code, "NOTIFICATION_PAYLOAD_INVALID");
@@ -246,7 +393,7 @@ if (databaseUrl) {
 
       // Verify event is retryable ('pending', attempts = 1, NOTIFIER_FAILED)
       const rows =
-        await sql`select status, attempts, last_error_code, processed_at from notification_events where id=${eventId}`;
+        await sql`select status, attempts, last_error_code, processed_at from notification_deliveries where event_id=${eventId}`;
       assertEquals(rows.length, 1);
       assertEquals(rows[0].status, "pending");
       assertEquals(rows[0].attempts, 1);

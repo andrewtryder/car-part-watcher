@@ -8,9 +8,9 @@ import {
 import { parseSearchOptions } from "../parsers/search_options.ts";
 import type {
   BrowserRuntimeInfo,
-  CarPartListing,
   CarPartSearchRequest,
   CarPartSearchResult,
+  SearchExecutionOptions,
   SearchOptions,
   SearchTimings,
 } from "../types.ts";
@@ -36,6 +36,16 @@ const representativeSearch: CarPartSearchRequest = {
   sort: "price",
   refinement: { label: "2.4L (Mitsubishi manufacturer), AT (CVT)" },
 };
+
+function cancellationError(signal: AbortSignal): CarPartSearchError {
+  return signal.reason instanceof CarPartSearchError
+    ? signal.reason
+    : new CarPartSearchError("RUN_CANCELLED", "Search run was cancelled");
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw cancellationError(signal);
+}
 
 function assertNoChallenge(html: string) {
   if (/just a moment|cf-chl|challenges\.cloudflare\.com/i.test(html)) {
@@ -168,23 +178,28 @@ export async function runCarPartSearch(
   provider: BrowserProvider,
   request = representativeSearch,
   onStage: (stage: string) => void = () => {},
-  runOptions: {
-    onPage?: (
-      page: { number: number; listings: CarPartListing[]; url: string },
-    ) => void;
-  } = {},
+  runOptions: SearchExecutionOptions = {},
 ): Promise<CarPartSearchResult> {
   const startedAt = performance.now();
   let stage = "session_create";
   let session: BrowserSession | undefined;
+  let closePromise: Promise<void> | undefined;
   const timings: SearchTimings = {};
   const recordStage = (nextStage: string) => {
     stage = nextStage;
     onStage(nextStage);
   };
+  const closeSession = () => {
+    if (!session) return Promise.resolve();
+    return closePromise ??= session.close();
+  };
+  const onAbort = () => void closeSession();
+  runOptions.signal?.addEventListener("abort", onAbort, { once: true });
   try {
+    throwIfAborted(runOptions.signal);
     session = await provider.createSession();
     Object.assign(timings, session.timings);
+    throwIfAborted(runOptions.signal);
     const page = session.page ?? await session.context.newPage();
     stage = "homepage_load";
     try {
@@ -356,6 +371,7 @@ export async function runCarPartSearch(
       });
     }
     const hasNextPage = hasNextResultsPage(html);
+    throwIfAborted(runOptions.signal);
     timings.totalMs = Math.round(performance.now() - startedAt);
     return {
       search: request,
@@ -369,7 +385,10 @@ export async function runCarPartSearch(
       timings,
       runtimeInfo: session.runtimeInfo,
     };
-  } catch (error) {
+  } catch (cause) {
+    const error = runOptions.signal?.aborted
+      ? cancellationError(runOptions.signal)
+      : cause;
     if (error instanceof CarPartSearchError) {
       timings.totalMs = Math.round(performance.now() - startedAt);
       const details = error.details && typeof error.details === "object"
@@ -384,8 +403,9 @@ export async function runCarPartSearch(
     }
     throw error;
   } finally {
+    runOptions.signal?.removeEventListener("abort", onAbort);
     if (session) {
-      await session.close();
+      await closeSession();
       onStage("browser session closed");
     }
   }

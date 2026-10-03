@@ -47,4 +47,17 @@ execute the canonical verification gate (`deno task ci`) and the
 source-controlled database migration step (`deno task migrate`) before deploying
 the new revision.
 
-More implementation detail is available in the `docs/` directory.
+Deployments must set `APP_ENV=production`, `CONSOLE_AUTH_ENABLED=true`, and the
+`CONSOLE_USERNAME`/`CONSOLE_PASSWORD` secrets. Startup fails closed if those
+access controls are missing. See [security documentation](docs/security.md).
+
+## Documentation
+
+- [Architecture](docs/architecture.md), [database](docs/database.md), and
+  [security](docs/security.md)
+- [Reconciliation](docs/reconciliation.md) and
+  [listing identity](docs/listing-identity.md)
+- [Notifications](docs/notifications.md), [scheduling](docs/scheduling.md), and
+  [web console](docs/web-console.md)
+- Historical rollout evidence and incidents live in
+  [docs/history](docs/history/).

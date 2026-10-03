@@ -123,9 +123,15 @@ Deno.test("exhausts max attempts and throws last error", async () => {
 });
 
 Deno.test("aborts with RUN_TIMEOUT when run exceeds max duration", async () => {
-  const hangingRunner = () =>
-    new Promise<CarPartSearchResult>((resolve) => {
-      setTimeout(() => resolve(mockResult), 200);
+  const hangingRunner = (_watch: Watch, options: { signal?: AbortSignal }) =>
+    new Promise<CarPartSearchResult>((_resolve, reject) => {
+      options.signal?.addEventListener(
+        "abort",
+        () => reject(options.signal?.reason),
+        {
+          once: true,
+        },
+      );
     });
 
   await assertRejects(
@@ -137,4 +143,39 @@ Deno.test("aborts with RUN_TIMEOUT when run exceeds max duration", async () => {
     CarPartSearchError,
     "Search run exceeded",
   );
+});
+
+Deno.test("waits for a timed-out attempt to terminate before retrying", async () => {
+  let attempts = 0;
+  let activeAttempts = 0;
+  let secondStartedAfterCleanup = false;
+  const runner = (_watch: Watch, options: { signal?: AbortSignal }) => {
+    attempts++;
+    activeAttempts++;
+    if (attempts === 2) {
+      secondStartedAfterCleanup = activeAttempts === 1;
+      activeAttempts--;
+      return Promise.resolve(mockResult);
+    }
+    return new Promise<CarPartSearchResult>((_resolve, reject) => {
+      options.signal?.addEventListener("abort", () => {
+        setTimeout(() => {
+          activeAttempts--;
+          reject(options.signal?.reason);
+        }, 10);
+      }, { once: true });
+    });
+  };
+
+  const result = await executeSearchWithRetry(runner, mockWatch, {
+    maxAttempts: 2,
+    attemptTimeoutMs: 5,
+    backoffDelaysMs: [0],
+    maxRunTimeMs: 1_000,
+  });
+
+  assertEquals(result, mockResult);
+  assertEquals(attempts, 2);
+  assertEquals(secondStartedAfterCleanup, true);
+  assertEquals(activeAttempts, 0);
 });

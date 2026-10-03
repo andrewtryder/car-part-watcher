@@ -1,5 +1,3 @@
-import { runCarPartSearch } from "../browser/car_part_browser.ts";
-import { BrowserlessBrowserProvider } from "../browser/browserless_browser_provider.ts";
 import { getDatabase } from "../db/database.ts";
 import {
   type NormalizedListing,
@@ -15,8 +13,8 @@ import {
   failSearchRun,
   hasPreviousSuccessfulRun,
 } from "../repositories/search_run_repository.ts";
-import { getWatch, type Watch } from "../repositories/watch_repository.ts";
-import { CarPartSearchError, type CarPartSearchResult } from "../types.ts";
+import { getWatch } from "../repositories/watch_repository.ts";
+import { CarPartSearchError } from "../types.ts";
 import { deduplicateNormalized } from "../reconciliation.ts";
 import {
   createListingUpdatedEvent,
@@ -28,6 +26,7 @@ import {
 } from "./notification_service.ts";
 import type { ListingFieldChange } from "../listing_normalizer.ts";
 import { executeSearchWithRetry } from "./search_retry.ts";
+import type { CarPartSearchClient } from "../search/car_part_search_client.ts";
 
 export interface WatchRunSummary {
   runId: string;
@@ -67,14 +66,15 @@ export interface ExecuteWatchOptions {
   runType?: "manual" | "scheduled";
   scheduledKey?: string;
   scheduleSlot?: string;
-  searchRunner?: (watch: Watch) => Promise<CarPartSearchResult>;
   maxAttempts?: number;
   backoffDelaysMs?: number[];
   maxRunTimeMs?: number;
+  signal?: AbortSignal;
   notificationPolicy?: NotificationDeliveryPolicy;
 }
 
 export async function executeWatch(
+  searchClient: CarPartSearchClient,
   watchId: string,
   options: ExecuteWatchOptions = {},
 ): Promise<WatchRunSummary | undefined> {
@@ -85,15 +85,17 @@ export async function executeWatch(
   const run = await createSearchRun(watch.id, options);
   if (!run) return undefined;
   const began = performance.now();
-  const search = options.searchRunner ??
-    ((w) => runCarPartSearch(new BrowserlessBrowserProvider(), w));
-
   try {
-    const result = await executeSearchWithRetry(search, watch, {
-      maxAttempts: options.maxAttempts,
-      backoffDelaysMs: options.backoffDelaysMs,
-      maxRunTimeMs: options.maxRunTimeMs,
-    });
+    const result = await executeSearchWithRetry(
+      (request, searchOptions) => searchClient.search(request, searchOptions),
+      watch,
+      {
+        maxAttempts: options.maxAttempts,
+        backoffDelaysMs: options.backoffDelaysMs,
+        maxRunTimeMs: options.maxRunTimeMs,
+        signal: options.signal,
+      },
+    );
 
     const normalized =
       (await Promise.all(result.results.listings.map(normalizeListing))).filter(
@@ -155,39 +157,37 @@ export async function executeWatch(
       }
 
       if (shouldNotify) {
-        if (notifyNew) {
-          for (const { listingId, listing } of newEventInputs) {
-            const canonicalEvent = buildNotificationEventV1({
-              watch: { id: watch.id, name: watch.name },
-              listing: { id: listingId, listing },
-              scheduleSlot,
-            });
-            await createNewListingEvent(sql, {
-              id: canonicalEvent.eventId,
-              watchId: watch.id,
-              searchRunId: run.id,
-              listingId,
-              payload: canonicalEvent,
-            });
-          }
+        for (const { listingId, listing } of newEventInputs) {
+          const canonicalEvent = buildNotificationEventV1({
+            watch: { id: watch.id, name: watch.name },
+            listing: { id: listingId, listing },
+            scheduleSlot,
+          });
+          await createNewListingEvent(sql, {
+            id: canonicalEvent.eventId,
+            watchId: watch.id,
+            searchRunId: run.id,
+            listingId,
+            payload: canonicalEvent,
+            createDelivery: notifyNew,
+          });
         }
-        if (notifyUpdated) {
-          for (const { listingId, listing, changes } of updatedEventInputs) {
-            const canonicalEvent = buildNotificationEventV1({
-              watch: { id: watch.id, name: watch.name },
-              listing: { id: listingId, listing },
-              scheduleSlot,
-              eventType: "listing_updated",
-              changes,
-            });
-            await createListingUpdatedEvent(sql, {
-              id: canonicalEvent.eventId,
-              watchId: watch.id,
-              searchRunId: run.id,
-              listingId,
-              payload: canonicalEvent,
-            });
-          }
+        for (const { listingId, listing, changes } of updatedEventInputs) {
+          const canonicalEvent = buildNotificationEventV1({
+            watch: { id: watch.id, name: watch.name },
+            listing: { id: listingId, listing },
+            scheduleSlot,
+            eventType: "listing_updated",
+            changes,
+          });
+          await createListingUpdatedEvent(sql, {
+            id: canonicalEvent.eventId,
+            watchId: watch.id,
+            searchRunId: run.id,
+            listingId,
+            payload: canonicalEvent,
+            createDelivery: notifyUpdated,
+          });
         }
       }
 

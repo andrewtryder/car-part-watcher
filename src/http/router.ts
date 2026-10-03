@@ -24,8 +24,12 @@ import {
   handleRunWatch,
   handleUpdateWatch,
 } from "./watch_handlers.ts";
+import type { CarPartSearchClient } from "../search/car_part_search_client.ts";
 
-export async function routeRequest(req: Request): Promise<Response> {
+export async function routeRequest(
+  req: Request,
+  searchClient: CarPartSearchClient,
+): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
   const method = req.method;
@@ -39,7 +43,7 @@ export async function routeRequest(req: Request): Promise<Response> {
       return await handleGetCatalog();
     }
     if (path === "/api/catalog/refresh" && method === "POST") {
-      return await handleRefreshCatalog();
+      return await handleRefreshCatalog(searchClient);
     }
     if (path === "/api/system" && method === "GET") {
       return await handleGetSystem();
@@ -68,7 +72,7 @@ export async function routeRequest(req: Request): Promise<Response> {
       return await handleListRecentRuns(url);
     }
     if (path === "/api/watches/resolve" && method === "POST") {
-      return await handleResolveWatch(req);
+      return await handleResolveWatch(req, searchClient);
     }
     if (path === "/api/watches" && method === "GET") {
       return await handleListWatches();
@@ -79,7 +83,7 @@ export async function routeRequest(req: Request): Promise<Response> {
 
     const runWatchId = path.match(/^\/api\/watches\/([\w-]+)\/run$/)?.[1];
     if (runWatchId && method === "POST") {
-      return await handleRunWatch(runWatchId);
+      return await handleRunWatch(runWatchId, searchClient, req.signal);
     }
     const historyWatchId = path.match(/^\/api\/watches\/([\w-]+)\/runs$/)?.[1];
     if (historyWatchId && method === "GET") {

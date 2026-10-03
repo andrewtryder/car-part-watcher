@@ -8,60 +8,48 @@ export interface NotificationEvent {
   listingId?: string;
   eventType: "new_listing" | "listing_updated";
   payload: unknown;
-  status: "pending" | "processing" | "delivered" | "failed";
-  attempts: number;
-  availableAt: string;
-  processedAt?: string;
   readAt?: string;
+  deliveryId?: string;
+  status?: "pending" | "processing" | "delivered" | "failed";
+  attempts?: number;
+  availableAt?: string;
+  processedAt?: string;
   lastErrorCode?: string;
   lastErrorMessage?: string;
   createdAt: string;
 }
-const parsePayload = (value: unknown): unknown => {
-  if (typeof value === "string") {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-  return value;
-};
-interface NotificationEventRow {
-  id: string;
-  watch_id: string;
-  search_run_id: string;
-  listing_id?: string | null;
-  event_type: "new_listing" | "listing_updated";
-  payload: unknown;
+export interface NotificationDelivery extends NotificationEvent {
+  deliveryId: string;
   status: "pending" | "processing" | "delivered" | "failed";
   attempts: number;
-  available_at: Date;
-  processed_at?: Date | null;
-  read_at?: Date | null;
-  last_error_code?: string | null;
-  last_error_message?: string | null;
-  created_at: Date;
+  availableAt: string;
+  processedAt?: string;
+  lastErrorCode?: string;
+  lastErrorMessage?: string;
 }
-
-const map = (row: NotificationEventRow): NotificationEvent => ({
-  id: row.id,
-  watchId: row.watch_id,
-  searchRunId: row.search_run_id,
-  listingId: row.listing_id ?? undefined,
-  eventType: row.event_type,
-  payload: parsePayload(row.payload),
-  status: row.status,
-  attempts: row.attempts,
-  availableAt: row.available_at.toISOString(),
-  processedAt: row.processed_at?.toISOString(),
-  readAt: row.read_at?.toISOString(),
-  lastErrorCode: row.last_error_code ?? undefined,
-  lastErrorMessage: row.last_error_message ?? undefined,
-  createdAt: row.created_at.toISOString(),
+const parse = (value: unknown) =>
+  typeof value === "string" ? JSON.parse(value) : value;
+const map = (row: Record<string, unknown>): NotificationEvent => ({
+  id: row.id as string,
+  watchId: row.watch_id as string,
+  searchRunId: row.search_run_id as string,
+  listingId: row.listing_id as string | undefined,
+  eventType: row.event_type as NotificationDelivery["eventType"],
+  payload: parse(row.payload),
+  readAt: (row.read_at as Date | undefined)?.toISOString(),
+  createdAt: (row.created_at as Date).toISOString(),
+  deliveryId: (row.delivery_id as string | null | undefined) ?? undefined,
+  status: (row.status as NotificationDelivery["status"] | null | undefined) ??
+    undefined,
+  attempts: (row.attempts as number | null | undefined) ?? undefined,
+  availableAt: (row.available_at as Date | undefined)?.toISOString(),
+  processedAt: (row.processed_at as Date | undefined)?.toISOString(),
+  lastErrorCode: (row.last_error_code as string | null | undefined) ??
+    undefined,
+  lastErrorMessage: (row.last_error_message as string | null | undefined) ??
+    undefined,
 });
-
-export async function createNewListingEvent(
+async function createEvent(
   sql: Sql,
   input: {
     id?: string;
@@ -69,51 +57,58 @@ export async function createNewListingEvent(
     searchRunId: string;
     listingId: string;
     payload: unknown;
+    eventType: "new_listing" | "listing_updated";
+    createDelivery?: boolean;
   },
 ) {
   const id = input.id ?? crypto.randomUUID();
-  await sql`insert into notification_events (id,watch_id,search_run_id,event_type,listing_id,payload) values (${id},${input.watchId},${input.searchRunId},'new_listing',${input.listingId},${
-    JSON.stringify(input.payload)
-  }::jsonb) on conflict (search_run_id,listing_id,event_type) do nothing`;
-}
-export async function createListingUpdatedEvent(
-  sql: Sql,
-  input: {
-    id?: string;
-    watchId: string;
-    searchRunId: string;
-    listingId: string;
-    payload: unknown;
-    status?: "pending" | "delivered";
-  },
-) {
-  const id = input.id ?? crypto.randomUUID();
-  const status = input.status ?? "pending";
-  const processedAt = status === "delivered" ? new Date() : null;
-  await sql`insert into notification_events (id,watch_id,search_run_id,event_type,listing_id,payload,status,processed_at) values (${id},${input.watchId},${input.searchRunId},'listing_updated',${input.listingId},${
-    JSON.stringify(input.payload)
-  }::jsonb,${status},${processedAt}) on conflict (search_run_id,listing_id,event_type) do nothing`;
-}
-export async function claimNotificationEvents(limit = 20) {
-  return await getDatabase().begin(async (sql) => {
-    const rows =
-      await sql`select * from notification_events where status='pending' and available_at <= now() order by created_at for update skip locked limit ${limit}`;
-    for (const row of rows) {
-      await sql`update notification_events set status='processing',attempts=attempts+1,updated_at=now() where id=${row.id}`;
+  const rows =
+    await sql`insert into notification_events (id,watch_id,search_run_id,event_type,listing_id,payload) values (${id},${input.watchId},${input.searchRunId},${input.eventType},${input.listingId},${
+      JSON.stringify(input.payload)
+    }::jsonb) on conflict (search_run_id,listing_id,event_type) do nothing returning id`;
+  if (rows.length) {
+    await sql`insert into notification_inbox_state (event_id) values (${id})`;
+    if (input.createDelivery ?? true) {
+      await sql`insert into notification_deliveries (id,event_id,channel) values (${crypto.randomUUID()},${id},'email')`;
     }
-    return rows.map((row) => {
-      const r = row as unknown as NotificationEventRow;
-      return {
-        ...map(r),
-        status: "processing" as const,
-        attempts: r.attempts + 1,
-      };
-    });
+  }
+}
+export const createNewListingEvent = (
+  sql: Sql,
+  input: Omit<Parameters<typeof createEvent>[1], "eventType">,
+) => createEvent(sql, { ...input, eventType: "new_listing" });
+export const createListingUpdatedEvent = (
+  sql: Sql,
+  input: Omit<Parameters<typeof createEvent>[1], "eventType">,
+) => createEvent(sql, { ...input, eventType: "listing_updated" });
+const deliveryRowsFor = (where: string) =>
+  `select e.*, i.read_at, d.id as delivery_id, d.status, d.attempts, d.available_at, d.processed_at, d.last_error_code, d.last_error_message from notification_deliveries d join notification_events e on e.id=d.event_id left join notification_inbox_state i on i.event_id=e.id ${where}`;
+export async function claimNotificationEvents(
+  limit = 20,
+): Promise<NotificationDelivery[]> {
+  return await getDatabase().begin(async (sql) => {
+    const rows = await sql.unsafe(
+      `${
+        deliveryRowsFor(
+          "where d.status='pending' and d.available_at <= now() order by d.created_at for update of d skip locked limit " +
+            Math.max(1, Math.min(limit, 100)),
+        )
+      }`,
+    );
+    for (const row of rows) {
+      await sql`update notification_deliveries set status='processing',attempts=attempts+1,updated_at=now() where id=${row.delivery_id}`;
+    }
+    return rows.map((row) => ({
+      ...map(row as Record<string, unknown>),
+      deliveryId: row.delivery_id as string,
+      status: "processing" as const,
+      attempts: (row.attempts as number) + 1,
+      availableAt: (row.available_at as Date).toISOString(),
+    }));
   });
 }
-export async function markDelivered(id: string) {
-  await getDatabase()`update notification_events set status='delivered',processed_at=now(),updated_at=now() where id=${id}`;
-}
+export const markDelivered = (id: string) =>
+  getDatabase()`update notification_deliveries set status='delivered',processed_at=now(),updated_at=now() where id=${id}`;
 export async function markFailed(
   id: string,
   attempts: number,
@@ -122,17 +117,12 @@ export async function markFailed(
   options?: { terminal?: boolean },
 ) {
   const terminal = options?.terminal ?? attempts >= 3;
-  const delayMinutes = Math.min(60, 5 * 2 ** Math.max(0, attempts - 1));
-  await getDatabase()`update notification_events set status=${
+  const minutes = Math.min(60, 5 * 2 ** Math.max(0, attempts - 1));
+  await getDatabase()`update notification_deliveries set status=${
     terminal ? "failed" : "pending"
-  },available_at=now() + (${delayMinutes} * interval '1 minute'),last_error_code=${code},last_error_message=${
+  },available_at=now() + (${minutes} * interval '1 minute'),last_error_code=${code},last_error_message=${
     message.slice(0, 500)
   },updated_at=now() where id=${id}`;
-}
-export async function listNotificationEvents() {
-  const rows =
-    await getDatabase()`select * from notification_events order by created_at desc limit 50`;
-  return rows.map((r) => map(r as unknown as NotificationEventRow));
 }
 export async function listInboxNotifications(
   options: {
@@ -142,41 +132,32 @@ export async function listInboxNotifications(
     eventType?: string;
   } = {},
 ) {
-  const sql = getDatabase();
-  const watchId = options.watchId ?? null;
-  const eventType = options.eventType ?? null;
-  const limit =
-    typeof options.limit === "number" && Number.isFinite(options.limit)
-      ? Math.min(Math.max(Math.floor(options.limit), 1), 100)
-      : 50;
+  const watchId = options.watchId ?? null,
+    type = options.eventType ?? null,
+    limit = Math.min(Math.max(options.limit ?? 50, 1), 100),
+    sql = getDatabase();
+  const unread = options.unread ?? true;
   const rows =
-    await sql`select * from notification_events where (${eventType}::text is null and event_type in ('new_listing', 'listing_updated') or event_type = ${eventType}) and (${
-      options.unread ?? true
-    }=false or read_at is null) and (${watchId}::uuid is null or watch_id=${watchId}::uuid) order by created_at desc limit ${limit}`;
-  const unread =
-    await sql`select count(*)::int as count from notification_events where (${eventType}::text is null and event_type in ('new_listing', 'listing_updated') or event_type = ${eventType}) and read_at is null and (${watchId}::uuid is null or watch_id=${watchId}::uuid)`;
+    await sql`select e.*, i.read_at, d.id as delivery_id, d.status, d.attempts, d.available_at, d.processed_at, d.last_error_code, d.last_error_message from notification_events e join notification_inbox_state i on i.event_id=e.id left join notification_deliveries d on d.event_id=e.id where (${unread}=false or i.read_at is null) and (${type}::text is null or e.event_type=${type}) and (${watchId}::uuid is null or e.watch_id=${watchId}::uuid) order by e.created_at desc limit ${limit}`;
+  const countRows =
+    await sql`select count(*)::int as count from notification_events e join notification_inbox_state i on i.event_id=e.id where i.read_at is null and (${type}::text is null or e.event_type=${type}) and (${watchId}::uuid is null or e.watch_id=${watchId}::uuid)`;
   return {
-    items: rows.map((r) => map(r as unknown as NotificationEventRow)),
-    unreadCount: unread[0].count,
+    items: rows.map((row) => map(row as Record<string, unknown>)),
+    unreadCount: countRows[0]?.count as number ?? 0,
   };
 }
-export async function markNotificationRead(id: string) {
-  await getDatabase()`update notification_events set read_at=coalesce(read_at,now()),updated_at=now() where id=${id}`;
-}
-export async function markAllNotificationsRead(watchId?: string) {
-  const id = watchId ?? null;
-  await getDatabase()`update notification_events set read_at=coalesce(read_at,now()),updated_at=now() where event_type in ('new_listing', 'listing_updated') and read_at is null and (${id}::uuid is null or watch_id=${id}::uuid)`;
-}
+export const markNotificationRead = (id: string) =>
+  getDatabase()`update notification_inbox_state set read_at=coalesce(read_at,now()) where event_id=${id}`;
+export const markAllNotificationsRead = (watchId?: string) =>
+  getDatabase()`update notification_inbox_state i set read_at=coalesce(i.read_at,now()) from notification_events e where e.id=i.event_id and (${
+    watchId ?? null
+  }::uuid is null or e.watch_id=${watchId ?? null}::uuid)`;
 export async function notificationCounts() {
   const rows =
-    await getDatabase()`select status,count(*)::int as count from notification_events group by status`;
+    await getDatabase()`select status,count(*)::int as count from notification_deliveries group by status`;
   return Object.fromEntries(
-    rows.map((row) => {
-      const r = row as unknown as { status: string; count: number };
-      return [r.status, r.count];
-    }),
+    rows.map((row) => [row.status as string, row.count as number]),
   );
 }
-export async function retryNotificationEvent(id: string) {
-  await getDatabase()`update notification_events set status='pending',available_at=now(),last_error_code=null,last_error_message=null,updated_at=now() where id=${id} and status='failed'`;
-}
+export const retryNotificationEvent = (id: string) =>
+  getDatabase()`update notification_deliveries set status='pending',available_at=now(),last_error_code=null,last_error_message=null,updated_at=now() where event_id=${id} and status='failed'`;
