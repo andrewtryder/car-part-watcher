@@ -10,7 +10,7 @@ import {
 } from "../src/reconciliation.ts";
 import { executeWatch } from "../src/services/reconciliation_service.ts";
 import type { NormalizedListing } from "../src/listing_normalizer.ts";
-import type { SpikeResult } from "../src/types.ts";
+import type { CarPartSearchResult } from "../src/types.ts";
 import { getDatabase } from "../src/db/database.ts";
 import { saveWatch, type Watch } from "../src/repositories/watch_repository.ts";
 
@@ -142,7 +142,7 @@ if (databaseUrl) {
     };
     await saveWatch(testWatch);
 
-    const fakeResult: SpikeResult = {
+    const fakeResult: CarPartSearchResult = {
       search: {
         year: "2015",
         makeModel: "Honda Accord",
@@ -197,7 +197,7 @@ if (databaseUrl) {
       assertEquals(summary2.changedCount, 0);
 
       // Repeat run with modified price -> triggers listing_updated event
-      const modifiedResult: SpikeResult = {
+      const modifiedResult: CarPartSearchResult = {
         ...fakeResult,
         results: {
           ...fakeResult.results,
@@ -228,7 +228,7 @@ if (databaseUrl) {
       assertExists(updateEvents[0].processed_at);
 
       // Verify delivery policy: suppressing updated listings
-      const modifiedResult2: SpikeResult = {
+      const modifiedResult2: CarPartSearchResult = {
         ...fakeResult,
         results: {
           ...fakeResult.results,
@@ -282,7 +282,7 @@ if (databaseUrl) {
     };
     await saveWatch(testWatch);
 
-    const fakeResult: SpikeResult = {
+    const fakeResult: CarPartSearchResult = {
       search: {
         year: "2015",
         makeModel: "Honda Accord",
@@ -350,7 +350,7 @@ if (databaseUrl) {
     };
     await saveWatch(testWatch);
 
-    const fakeResult: SpikeResult = {
+    const fakeResult: CarPartSearchResult = {
       search: {
         year: "2015",
         makeModel: "Honda Accord",

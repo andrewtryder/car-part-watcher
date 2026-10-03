@@ -10,11 +10,11 @@ import type {
   BrowserRuntimeInfo,
   CarPartListing,
   CarPartSearchRequest,
+  CarPartSearchResult,
   SearchOptions,
   SearchTimings,
-  SpikeResult,
 } from "../types.ts";
-import { SpikeError } from "../types.ts";
+import { CarPartSearchError } from "../types.ts";
 
 export interface BrowserSession {
   context: BrowserContext;
@@ -39,9 +39,9 @@ const representativeSearch: CarPartSearchRequest = {
 
 function assertNoChallenge(html: string) {
   if (/just a moment|cf-chl|challenges\.cloudflare\.com/i.test(html)) {
-    throw new SpikeError(
+    throw new CarPartSearchError(
       "ACCESS_CHALLENGE",
-      "The site presented an access challenge; the spike stopped without attempting to bypass it.",
+      "The site presented an access challenge; the search stopped without attempting to bypass it.",
     );
   }
 }
@@ -77,7 +77,7 @@ function optionValue(
     candidate.label === label || candidate.value === label
   );
   if (!option) {
-    throw new SpikeError(
+    throw new CarPartSearchError(
       "SEARCH_OPTION_NOT_FOUND",
       `No current ${key} option matches ${JSON.stringify(label)}`,
       { available: options[key].slice(0, 25).map((item) => item.label) },
@@ -150,7 +150,7 @@ export async function discoverCarPartRefinement(
     if (await detectPageType(page) === "results") return { status: "ready" };
     const labels = parseRefinementChoices(await page.content());
     if (!labels.length) {
-      throw new SpikeError(
+      throw new CarPartSearchError(
         "REFINEMENT_PARSE_FAILED",
         "Refinement page did not expose any visible choices",
       );
@@ -173,7 +173,7 @@ export async function runCarPartSearch(
       page: { number: number; listings: CarPartListing[]; url: string },
     ) => void;
   } = {},
-): Promise<SpikeResult> {
+): Promise<CarPartSearchResult> {
   const startedAt = performance.now();
   let stage = "session_create";
   let session: BrowserSession | undefined;
@@ -192,7 +192,7 @@ export async function runCarPartSearch(
       await page.goto(homeUrl, { waitUntil: "domcontentloaded" });
       timings.homepageLoadMs = Math.round(performance.now() - beganAt);
     } catch (cause) {
-      throw new SpikeError(
+      throw new CarPartSearchError(
         "PAGE_LOAD_FAILED",
         "Could not load the Car-Part homepage",
         { cause: String(cause) },
@@ -232,7 +232,7 @@ export async function runCarPartSearch(
       await submit(page, "input[name='Search Car Part Inventory']");
       timings.initialSubmitMs = Math.round(performance.now() - beganAt);
     } catch (cause) {
-      throw new SpikeError(
+      throw new CarPartSearchError(
         "FORM_SUBMIT_FAILED",
         "Could not submit the initial search form",
         { cause: String(cause) },
@@ -240,19 +240,19 @@ export async function runCarPartSearch(
     }
     recordStage("initial form submitted");
     let type = await detectPageType(page);
-    let refinement: SpikeResult["refinement"];
+    let refinement: CarPartSearchResult["refinement"];
     if (type === "refinement") {
       recordStage("refinement page reached");
       const available = parseRefinementChoices(await page.content());
       if (!available.length) {
-        throw new SpikeError(
+        throw new CarPartSearchError(
           "REFINEMENT_PARSE_FAILED",
           "Refinement page did not expose any visible choices",
         );
       }
       recordStage("refinement choices extracted");
       if (!request.refinement) {
-        throw new SpikeError(
+        throw new CarPartSearchError(
           "REFINEMENT_REQUIRED",
           "The search requires a refinement choice",
           { available },
@@ -260,7 +260,7 @@ export async function runCarPartSearch(
       }
       const index = available.indexOf(request.refinement.label);
       if (index < 0) {
-        throw new SpikeError(
+        throw new CarPartSearchError(
           "REFINEMENT_OPTION_NOT_FOUND",
           "The requested refinement is not currently available",
           { requested: request.refinement.label, available },
@@ -275,7 +275,7 @@ export async function runCarPartSearch(
         await submit(page, "#MainForm input[name='Search Car Part Inventory']");
         timings.refinementSubmitMs = Math.round(performance.now() - beganAt);
       } catch (cause) {
-        throw new SpikeError(
+        throw new CarPartSearchError(
           "FORM_SUBMIT_FAILED",
           "Could not submit the refinement form",
           { cause: String(cause) },
@@ -286,7 +286,7 @@ export async function runCarPartSearch(
       type = await detectPageType(page);
     }
     if (type !== "results") {
-      throw new SpikeError(
+      throw new CarPartSearchError(
         "UNEXPECTED_PAGE",
         "Expected a refinement or results page",
         { title: await page.title() },
@@ -297,7 +297,7 @@ export async function runCarPartSearch(
     let html = await page.content();
     const listings = parseResults(html);
     if (!listings.length) {
-      throw new SpikeError(
+      throw new CarPartSearchError(
         "RESULTS_PARSE_FAILED",
         "Results page had no parseable listing rows",
       );
@@ -318,14 +318,14 @@ export async function runCarPartSearch(
       const next = nextResultsPageHref(html, currentPage);
       if (!next) break;
       if (pagesFetched >= 20) {
-        throw new SpikeError(
+        throw new CarPartSearchError(
           "RESULTS_PARSE_FAILED",
           "Result pagination exceeded the 20-page safety limit",
         );
       }
       const nextUrl = new URL(next, page.url()).href;
       if (visited.has(nextUrl)) {
-        throw new SpikeError(
+        throw new CarPartSearchError(
           "RESULTS_PARSE_FAILED",
           "Result pagination repeated a page URL",
         );
@@ -334,7 +334,7 @@ export async function runCarPartSearch(
       recordStage("next-page detected");
       await page.goto(nextUrl, { waitUntil: "domcontentloaded" });
       if (await detectPageType(page) !== "results") {
-        throw new SpikeError(
+        throw new CarPartSearchError(
           "RESULTS_PARSE_FAILED",
           "Pagination did not return a results page",
         );
@@ -342,7 +342,7 @@ export async function runCarPartSearch(
       html = await page.content();
       const nextListings = parseResults(html);
       if (!nextListings.length) {
-        throw new SpikeError(
+        throw new CarPartSearchError(
           "RESULTS_PARSE_FAILED",
           "A paginated results page had no parseable listing rows",
         );
@@ -370,12 +370,12 @@ export async function runCarPartSearch(
       runtimeInfo: session.runtimeInfo,
     };
   } catch (error) {
-    if (error instanceof SpikeError) {
+    if (error instanceof CarPartSearchError) {
       timings.totalMs = Math.round(performance.now() - startedAt);
       const details = error.details && typeof error.details === "object"
         ? error.details
         : {};
-      throw new SpikeError(error.code, error.message, {
+      throw new CarPartSearchError(error.code, error.message, {
         stage,
         ...details,
         timings,

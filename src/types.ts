@@ -43,7 +43,7 @@ export interface CarPartListing {
   quoteUrl?: string;
 }
 
-export interface SpikeResult {
+export interface CarPartSearchResult {
   search: CarPartSearchRequest;
   refinement?: { selected: string; available: string[] };
   results: {
@@ -76,7 +76,7 @@ export interface BrowserRuntimeInfo {
   display: boolean;
 }
 
-export type SpikeErrorCode =
+export type CarPartSearchErrorCode =
   | "SEARCH_OPTION_NOT_FOUND"
   | "REFINEMENT_REQUIRED"
   | "REFINEMENT_OPTION_NOT_FOUND"
@@ -97,9 +97,9 @@ export type SpikeErrorCode =
   | "REMOTE_BROWSER_TIMEOUT"
   | "RUN_TIMEOUT";
 
-export class SpikeError extends Error {
+export class CarPartSearchError extends Error {
   constructor(
-    public readonly code: SpikeErrorCode,
+    public readonly code: CarPartSearchErrorCode,
     message: string,
     public readonly details?: unknown,
   ) {

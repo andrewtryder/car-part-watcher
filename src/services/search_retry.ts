@@ -1,8 +1,8 @@
-import { SpikeError, type SpikeResult } from "../types.ts";
+import { CarPartSearchError, type CarPartSearchResult } from "../types.ts";
 import type { Watch } from "../repositories/watch_repository.ts";
 
 export function isRetryableError(error: unknown): boolean {
-  if (error instanceof SpikeError) {
+  if (error instanceof CarPartSearchError) {
     if (
       error.code === "REFINEMENT_REQUIRED" ||
       error.code === "REFINEMENT_OPTION_NOT_FOUND"
@@ -22,7 +22,7 @@ export function withTimeout<T>(
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(new SpikeError("RUN_TIMEOUT", timeoutMessage));
+      reject(new CarPartSearchError("RUN_TIMEOUT", timeoutMessage));
     }, ms);
   });
   return Promise.race([
@@ -34,27 +34,27 @@ export function withTimeout<T>(
 }
 
 export async function executeSearchWithRetry(
-  search: (watch: Watch) => Promise<SpikeResult>,
+  search: (watch: Watch) => Promise<CarPartSearchResult>,
   watch: Watch,
   options: {
     maxAttempts?: number;
     backoffDelaysMs?: number[];
     maxRunTimeMs?: number;
   } = {},
-): Promise<SpikeResult> {
+): Promise<CarPartSearchResult> {
   const began = performance.now();
   const maxAttempts = options.maxAttempts ?? 3;
   const backoffDelays = options.backoffDelaysMs ?? [3_000, 8_000];
   const maxRunTimeMs = options.maxRunTimeMs ?? 10 * 60 * 1000;
   const runDeadline = began + maxRunTimeMs;
 
-  let result: SpikeResult | undefined;
+  let result: CarPartSearchResult | undefined;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const remainingTime = Math.max(0, runDeadline - performance.now());
     if (remainingTime <= 0) {
-      throw new SpikeError(
+      throw new CarPartSearchError(
         "RUN_TIMEOUT",
         `Search run exceeded the ${
           Math.round(maxRunTimeMs / 60000)

@@ -16,7 +16,7 @@ import {
   hasPreviousSuccessfulRun,
 } from "../repositories/search_run_repository.ts";
 import { getWatch, type Watch } from "../repositories/watch_repository.ts";
-import { SpikeError, type SpikeResult } from "../types.ts";
+import { CarPartSearchError, type CarPartSearchResult } from "../types.ts";
 import { deduplicateNormalized } from "../reconciliation.ts";
 import {
   createListingUpdatedEvent,
@@ -41,7 +41,7 @@ export interface WatchRunSummary {
 }
 
 function safeError(error: unknown) {
-  if (error instanceof SpikeError) {
+  if (error instanceof CarPartSearchError) {
     return { code: error.code, message: error.message };
   }
   if (error && typeof error === "object" && "code" in error) {
@@ -67,7 +67,7 @@ export interface ExecuteWatchOptions {
   runType?: "manual" | "scheduled";
   scheduledKey?: string;
   scheduleSlot?: string;
-  searchRunner?: (watch: Watch) => Promise<SpikeResult>;
+  searchRunner?: (watch: Watch) => Promise<CarPartSearchResult>;
   maxAttempts?: number;
   backoffDelaysMs?: number[];
   maxRunTimeMs?: number;

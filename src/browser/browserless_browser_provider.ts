@@ -1,6 +1,6 @@
 import type { Browser } from "npm:playwright-core@1.58.2";
 import type { BrowserProvider, BrowserSession } from "./car_part_browser.ts";
-import { SpikeError } from "../types.ts";
+import { CarPartSearchError } from "../types.ts";
 
 const defaultEndpoint = "wss://production-sfo.browserless.io";
 
@@ -22,9 +22,9 @@ function browserlessCdpUrl(): string {
   const token = Deno.env.get("BROWSERLESS_API_KEY") ??
     Deno.env.get("BROWSERLESS_TOKEN");
   if (!token) {
-    throw new SpikeError(
+    throw new CarPartSearchError(
       "REMOTE_BROWSER_CREATE_FAILED",
-      "BROWSERLESS_API_KEY is required for the remote Chrome experiment",
+      "BROWSERLESS_API_KEY is required for remote Chrome access",
       { stage: "remote_session_create" },
     );
   }
@@ -32,14 +32,14 @@ function browserlessCdpUrl(): string {
   try {
     endpoint = new URL(Deno.env.get("BROWSERLESS_ENDPOINT") ?? defaultEndpoint);
   } catch (cause) {
-    throw new SpikeError(
+    throw new CarPartSearchError(
       "REMOTE_BROWSER_CREATE_FAILED",
       "BROWSERLESS_ENDPOINT must be a WebSocket URL",
       { stage: "remote_session_create", cause: sanitizeRemoteCause(cause) },
     );
   }
   if (endpoint.protocol !== "ws:" && endpoint.protocol !== "wss:") {
-    throw new SpikeError(
+    throw new CarPartSearchError(
       "REMOTE_BROWSER_CREATE_FAILED",
       "BROWSERLESS_ENDPOINT must use ws or wss",
       { stage: "remote_session_create" },
@@ -47,7 +47,7 @@ function browserlessCdpUrl(): string {
   }
   const configuredPath = endpoint.pathname.replace(/\/$/, "");
   if (configuredPath && configuredPath !== "/chrome") {
-    throw new SpikeError(
+    throw new CarPartSearchError(
       "REMOTE_BROWSER_CREATE_FAILED",
       "BROWSERLESS_ENDPOINT must be the service origin or its /chrome CDP route",
       { stage: "remote_session_create" },
@@ -78,7 +78,7 @@ export class BrowserlessBrowserProvider implements BrowserProvider {
       const { chromium } = await import("npm:playwright-core@1.58.2");
       browser = await chromium.connectOverCDP(endpoint, { timeout: 15_000 });
     } catch (cause) {
-      throw new SpikeError(
+      throw new CarPartSearchError(
         "REMOTE_CDP_CONNECTION_FAILED",
         "Could not connect to Browserless Chrome over CDP",
         { stage: "remote_cdp_connect", cause: sanitizeRemoteCause(cause) },
@@ -88,7 +88,7 @@ export class BrowserlessBrowserProvider implements BrowserProvider {
     const context = browser.contexts()[0];
     if (!context) {
       await browser.close().catch(() => undefined);
-      throw new SpikeError(
+      throw new CarPartSearchError(
         "REMOTE_BROWSER_CREATE_FAILED",
         "Browserless did not provide its default browser context",
         { stage: "remote_session_create" },

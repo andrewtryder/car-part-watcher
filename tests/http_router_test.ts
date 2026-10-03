@@ -6,7 +6,7 @@ import {
   parseWatchDraft,
 } from "../src/http/watch_handlers.ts";
 import { ListingIdentityCollisionError } from "../src/reconciliation.ts";
-import { SpikeError } from "../src/types.ts";
+import { CarPartSearchError } from "../src/types.ts";
 
 Deno.test("parseLimitParam sanitizes bounds and fallbacks", () => {
   assertEquals(parseLimitParam(null, 50, 100), 50);
@@ -65,25 +65,25 @@ Deno.test("mapErrorToResponse maps collision errors to 409", async () => {
   );
 });
 
-Deno.test("mapErrorToResponse maps SpikeErrors to appropriate gateway/timeout statuses", async () => {
+Deno.test("mapErrorToResponse maps CarPartSearchErrors to appropriate gateway/timeout statuses", async () => {
   const timeoutRes = mapErrorToResponse(
-    new SpikeError("RUN_TIMEOUT", "Exceeded time limit"),
+    new CarPartSearchError("RUN_TIMEOUT", "Exceeded time limit"),
   );
   assertEquals(timeoutRes.status, 504);
   assertEquals((await timeoutRes.json()).code, "RUN_TIMEOUT");
 
   const challengeRes = mapErrorToResponse(
-    new SpikeError("ACCESS_CHALLENGE", "Captcha blocked"),
+    new CarPartSearchError("ACCESS_CHALLENGE", "Captcha blocked"),
   );
   assertEquals(challengeRes.status, 503);
 
   const refinementRes = mapErrorToResponse(
-    new SpikeError("REFINEMENT_REQUIRED", "Please select option"),
+    new CarPartSearchError("REFINEMENT_REQUIRED", "Please select option"),
   );
   assertEquals(refinementRes.status, 400);
 
   const browserRes = mapErrorToResponse(
-    new SpikeError("PAGE_LOAD_FAILED", "Network failed"),
+    new CarPartSearchError("PAGE_LOAD_FAILED", "Network failed"),
   );
   assertEquals(browserRes.status, 502);
 });

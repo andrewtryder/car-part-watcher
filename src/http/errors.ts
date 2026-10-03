@@ -1,5 +1,5 @@
 import { ListingIdentityCollisionError } from "../reconciliation.ts";
-import { SpikeError } from "../types.ts";
+import { CarPartSearchError } from "../types.ts";
 
 export const json = (body: unknown, status = 200) =>
   Response.json(body, { status });
@@ -24,7 +24,7 @@ export function mapErrorToResponse(error: unknown): Response {
     status = 409;
     message = error.message;
     code = error.code;
-  } else if (error instanceof SpikeError) {
+  } else if (error instanceof CarPartSearchError) {
     code = error.code;
     message = error.message;
     switch (error.code) {
