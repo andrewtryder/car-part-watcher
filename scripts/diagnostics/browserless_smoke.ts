@@ -1,6 +1,6 @@
-import { BrowserlessBrowserProvider } from "./browser/browserless_browser_provider.ts";
-import { runCarPartSearch } from "./browser/car_part_browser.ts";
-import { SpikeError } from "./types.ts";
+import { BrowserlessBrowserProvider } from "../../src/browser/browserless_browser_provider.ts";
+import { runCarPartSearch } from "../../src/browser/car_part_browser.ts";
+import { SpikeError } from "../../src/types.ts";
 
 const stages: string[] = [];
 try {
@@ -61,7 +61,10 @@ try {
   }
 } catch (error) {
   const body = error instanceof SpikeError ? error.toJSON() : {
-    error: { code: "UNEXPECTED_PAGE", message: "Unexpected spike failure" },
+    error: {
+      code: "UNEXPECTED_PAGE",
+      message: "Unexpected Browserless smoke failure",
+    },
   };
   console.log(JSON.stringify({ stages, ...body }, null, 2));
   Deno.exitCode = 1;

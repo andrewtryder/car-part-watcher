@@ -27,6 +27,8 @@ import { WatchForm, WatchList } from "./Watches.tsx";
 import { WatchDetail } from "./WatchDetail.tsx";
 import { GlobalRunHistory } from "./RunHistory.tsx";
 
+import { formatDate, formatDuration } from "./utils/format.ts";
+
 const frequency = (value: number) =>
   value === 1
     ? "Once daily"
@@ -35,28 +37,10 @@ const frequency = (value: number) =>
     : "Three times daily";
 
 const time = (value: string | undefined, zone: string) =>
-  value
-    ? new Intl.DateTimeFormat(undefined, {
-      timeZone: zone,
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(value))
-    : "Not run yet";
+  formatDate(value, zone, { fallback: "Not run yet" });
 
 const duration = (run: { startedAt?: string; completedAt?: string }) =>
-  run.startedAt && run.completedAt
-    ? `${
-      Math.max(
-        0,
-        Math.round(
-          (new Date(run.completedAt).getTime() -
-            new Date(run.startedAt).getTime()) / 1000,
-        ),
-      )
-    }s`
-    : "—";
+  formatDuration(run);
 
 function Badge(
   { children, tone = "slate" }: {

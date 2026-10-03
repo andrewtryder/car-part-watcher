@@ -27,6 +27,7 @@ import {
   processNotificationOutbox,
 } from "./notification_service.ts";
 import type { ListingFieldChange } from "../listing_normalizer.ts";
+import { executeSearchWithRetry } from "./search_retry.ts";
 
 export interface WatchRunSummary {
   runId: string;
@@ -38,8 +39,6 @@ export interface WatchRunSummary {
   durationMs: number;
   newListings: NormalizedListing[];
 }
-
-import { executeSearchWithRetry } from "./search_retry.ts";
 
 function safeError(error: unknown) {
   if (error instanceof SpikeError) {
@@ -59,17 +58,25 @@ function safeError(error: unknown) {
   };
 }
 
+export interface NotificationDeliveryPolicy {
+  notifyNewListings?: boolean;
+  notifyUpdatedListings?: boolean;
+}
+
+export interface ExecuteWatchOptions {
+  runType?: "manual" | "scheduled";
+  scheduledKey?: string;
+  scheduleSlot?: string;
+  searchRunner?: (watch: Watch) => Promise<SpikeResult>;
+  maxAttempts?: number;
+  backoffDelaysMs?: number[];
+  maxRunTimeMs?: number;
+  notificationPolicy?: NotificationDeliveryPolicy;
+}
+
 export async function executeWatch(
   watchId: string,
-  options: {
-    runType?: "manual" | "scheduled";
-    scheduledKey?: string;
-    scheduleSlot?: string;
-    searchRunner?: (watch: Watch) => Promise<SpikeResult>;
-    maxAttempts?: number;
-    backoffDelaysMs?: number[];
-    maxRunTimeMs?: number;
-  } = {},
+  options: ExecuteWatchOptions = {},
 ): Promise<WatchRunSummary | undefined> {
   const watch = await getWatch(watchId);
   if (!watch) throw new Error("Watch not found");
@@ -111,6 +118,17 @@ export async function executeWatch(
       listing: NormalizedListing;
       changes: ListingFieldChange[];
     }[] = [];
+
+    const shouldNotify = hadSuccessfulRun || watch.notifyOnInitialRun;
+    const scheduleSlot = options.scheduleSlot ??
+      (options.runType === "scheduled" && options.scheduledKey
+        ? options.scheduledKey.split(":").pop()
+        : undefined) ??
+      "manual";
+    const notifyNew = options.notificationPolicy?.notifyNewListings ?? true;
+    const notifyUpdated = options.notificationPolicy?.notifyUpdatedListings ??
+      true;
+
     await getDatabase().begin(async (sql) => {
       for (const listing of unique.values()) {
         const stored = await upsertListing(sql, listing, observedAt, {
@@ -135,22 +153,9 @@ export async function executeWatch(
           newEventInputs.push({ listingId: stored.id, listing });
         }
       }
-      await completeSearchRun(sql, run.id, {
-        listingCount: unique.size,
-        newListingCount,
-        changedCount,
-        pagesFetched: result.results.pagesFetched ?? 1,
-        completedAt: new Date(),
-      });
-    });
-    if (hadSuccessfulRun || watch.notifyOnInitialRun) {
-      try {
-        const scheduleSlot = options.scheduleSlot ??
-          (options.runType === "scheduled" && options.scheduledKey
-            ? options.scheduledKey.split(":").pop()
-            : undefined) ??
-          "manual";
-        await getDatabase().begin(async (sql) => {
+
+      if (shouldNotify) {
+        if (notifyNew) {
           for (const { listingId, listing } of newEventInputs) {
             const canonicalEvent = buildNotificationEventV1({
               watch: { id: watch.id, name: watch.name },
@@ -165,6 +170,8 @@ export async function executeWatch(
               payload: canonicalEvent,
             });
           }
+        }
+        if (notifyUpdated) {
           for (const { listingId, listing, changes } of updatedEventInputs) {
             const canonicalEvent = buildNotificationEventV1({
               watch: { id: watch.id, name: watch.name },
@@ -181,11 +188,28 @@ export async function executeWatch(
               payload: canonicalEvent,
             });
           }
-        });
+        }
+      }
+
+      await completeSearchRun(sql, run.id, {
+        listingCount: unique.size,
+        newListingCount,
+        changedCount,
+        pagesFetched: result.results.pagesFetched ?? 1,
+        completedAt: new Date(),
+      });
+    });
+
+    if (
+      shouldNotify &&
+      ((notifyNew && newEventInputs.length > 0) ||
+        (notifyUpdated && updatedEventInputs.length > 0))
+    ) {
+      try {
         await processNotificationOutbox();
       } catch (error) {
         console.error(
-          "notification outbox generation failed",
+          "notification outbox processing failed",
           error instanceof Error ? error.message : "unknown",
         );
       }

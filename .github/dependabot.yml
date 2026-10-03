@@ -31,19 +31,3 @@ updates:
         update-types:
           - "minor"
           - "patch"
-
-  # Dockerfile base images (e.g., Dockerfile.browser-matrix)
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      docker-dependencies:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"

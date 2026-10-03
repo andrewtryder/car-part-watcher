@@ -16,6 +16,12 @@ import {
   watchRuns,
 } from "./api.ts";
 
+import {
+  formatDate as formatWithDate,
+  formatDuration,
+  formatFieldLabel,
+} from "./utils/format.ts";
+
 const frequency: Record<number, string> = {
   1: "Once daily",
   2: "Twice daily",
@@ -28,30 +34,10 @@ const draftFor = (value: Watch): WatchDraft => ({
 });
 
 const formatDate = (value: string | undefined, timezone: string) =>
-  value
-    ? new Intl.DateTimeFormat(undefined, {
-      timeZone: timezone,
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(value))
-    : "Not available";
-
-const formatDuration = (run: Run) => {
-  if (!run.startedAt || !run.completedAt) return "—";
-  const seconds = Math.max(
-    0,
-    Math.round(
-      (new Date(run.completedAt).getTime() -
-        new Date(run.startedAt).getTime()) / 1000,
-    ),
-  );
-  return seconds >= 60
-    ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`
-    : `${seconds}s`;
-};
+  formatWithDate(value, timezone, {
+    includeYear: true,
+    fallback: "Not available",
+  });
 
 const statusLabel = (status: Run["status"]) =>
   status === "succeeded"
@@ -62,35 +48,6 @@ const statusLabel = (status: Run["status"]) =>
 
 const statusTone = (status: Run["status"]) =>
   status === "succeeded" ? "green" : status === "failed" ? "red" : "amber";
-
-function formatFieldLabel(field: string): string {
-  switch (field) {
-    case "price_display":
-    case "priceDisplay":
-      return "Price";
-    case "grade":
-      return "Grade";
-    case "description":
-      return "Description";
-    case "damage_code":
-    case "damageCode":
-      return "Damage";
-    case "recycler_name":
-    case "recyclerName":
-      return "Recycler";
-    case "recycler_location":
-    case "recyclerLocation":
-      return "Location";
-    case "stock_number":
-    case "stockNumber":
-      return "Stock #";
-    case "photo_url":
-    case "photoUrl":
-      return "Photos";
-    default:
-      return field;
-  }
-}
 
 type SortField =
   | "photo"

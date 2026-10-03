@@ -102,10 +102,11 @@ export async function listSearchRuns(watchId: string) {
 }
 export async function listRecentSearchRuns(limit = 50) {
   await recoverStaleRuns();
+  const safeLimit = typeof limit === "number" && Number.isFinite(limit)
+    ? Math.min(Math.max(Math.floor(limit), 1), 100)
+    : 50;
   const rows =
-    await getDatabase()`select r.*, w.name as watch_name from search_runs r join watches w on w.id=r.watch_id order by r.started_at desc limit ${
-      Math.min(Math.max(limit, 1), 100)
-    }`;
+    await getDatabase()`select r.*, w.name as watch_name from search_runs r join watches w on w.id=r.watch_id order by r.started_at desc limit ${safeLimit}`;
   return rows.map((row) => {
     const r = row as unknown as SearchRunRow;
     return {

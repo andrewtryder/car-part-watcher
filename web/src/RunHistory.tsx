@@ -1,34 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { recentRuns, type Run, system, type Watch, watches } from "./api.ts";
+import { formatDate, formatDuration } from "./utils/format.ts";
 
 type HistoryRun = Run & { watchId: string; watchName: string };
 
-const duration = (run: Run) => {
-  if (!run.startedAt || !run.completedAt) return "—";
-  const seconds = Math.max(
-    0,
-    Math.round(
-      (new Date(run.completedAt).getTime() -
-        new Date(run.startedAt).getTime()) / 1000,
-    ),
-  );
-  return seconds >= 60
-    ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`
-    : `${seconds}s`;
-};
+const duration = (run: Run) => formatDuration(run);
 
 const date = (value: string | undefined, timezone: string) =>
-  value
-    ? new Intl.DateTimeFormat(undefined, {
-      timeZone: timezone,
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(value))
-    : "—";
+  formatDate(value, timezone, { includeYear: true, fallback: "—" });
 
 const label = (status: Run["status"]) =>
   status === "succeeded"

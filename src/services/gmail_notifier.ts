@@ -34,10 +34,13 @@ export function renderNotificationEmail(
   event: NotificationEventV1,
   settings: EmailNotificationSettings,
 ): RenderedNotificationEmail {
+  const isUpdated = event.eventType === "listing_updated";
+  const action = isUpdated ? "Updated" : "New";
   const title = event.listing.title.slice(0, 180);
-  const subject = `${settings.subjectPrefix} ${event.watch.name}: New ${title}${
-    event.listing.price ? ` — ${event.listing.price}` : ""
-  }`.slice(0, 500);
+  const subject =
+    `${settings.subjectPrefix} ${event.watch.name}: ${action} ${title}${
+      event.listing.price ? ` — ${event.listing.price}` : ""
+    }`.slice(0, 500);
   const savedSearch = settings.appBaseUrl
     ? `${settings.appBaseUrl.replace(/\/$/, "")}/watches/${event.watch.id}`
     : undefined;
@@ -60,12 +63,22 @@ export function renderNotificationEmail(
       listingUrl ? `View Listing:\n${listingUrl}` : "",
       photoUrl ? `View Photos:\n${photoUrl}` : "",
     ];
+  const changesText = isUpdated && event.changes?.length
+    ? [
+      "Changed Fields:",
+      ...event.changes.map((c) =>
+        `  - ${c.field}: ${c.oldValue ?? "none"} -> ${c.newValue ?? "none"}`
+      ),
+      "",
+    ]
+    : [];
   const text = [
-    `New part found for: ${event.watch.name}`,
+    `${action} part ${isUpdated ? "update" : "found"} for: ${event.watch.name}`,
     "",
     title,
     event.listing.description ?? "",
     "",
+    ...changesText,
     ...details,
     ...sourceLinks,
     event.listing.quoteUrl ? `Request Quote:\n${event.listing.quoteUrl}` : "",
@@ -77,7 +90,16 @@ export function renderNotificationEmail(
   const sourceLinkHtml = combinedListingAndPhotos
     ? link("View Listing & Photos", listingUrl)
     : `${link("View Listing", listingUrl)}${link("View Photos", photoUrl)}`;
-  const html = `<h2>New part found for: ${
+  const changesHtml = isUpdated && event.changes?.length
+    ? `<p><strong>Changed fields:</strong></p><ul>${
+      event.changes.map((c) =>
+        `<li><strong>${escapeHtml(c.field)}:</strong> ${
+          escapeHtml(c.oldValue ?? "none")
+        } &rarr; ${escapeHtml(c.newValue ?? "none")}</li>`
+      ).join("")
+    }</ul>`
+    : "";
+  const html = `<h2>${action} part ${isUpdated ? "update" : "found"} for: ${
     escapeHtml(event.watch.name)
   }</h2>${titleHtml}${
     linkedImage(event.listing.imageUrl, photoUrl ?? listingUrl)
@@ -85,7 +107,7 @@ export function renderNotificationEmail(
     event.listing.description
       ? `<p>${escapeHtml(event.listing.description)}</p>`
       : ""
-  }<ul>${
+  }${changesHtml}<ul>${
     details.map((value) => `<li>${escapeHtml(value)}</li>`).join("")
   }</ul>${sourceLinkHtml}${link("Request Quote", event.listing.quoteUrl)}${
     link("View Saved Search", savedSearch)

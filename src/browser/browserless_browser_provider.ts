@@ -1,15 +1,18 @@
-import { type Browser, chromium } from "npm:playwright-core@1.58.2";
+import type { Browser } from "npm:playwright-core@1.58.2";
 import type { BrowserProvider, BrowserSession } from "./car_part_browser.ts";
 import { SpikeError } from "../types.ts";
 
 const defaultEndpoint = "wss://production-sfo.browserless.io";
-const sessionTimeoutMs = Math.min(
-  Math.max(
-    Number(Deno.env.get("BROWSERLESS_SESSION_TIMEOUT_MS") ?? 60_000),
-    60_000,
-  ),
-  300_000,
-);
+
+function getSessionTimeoutMs(): number {
+  return Math.min(
+    Math.max(
+      Number(Deno.env.get("BROWSERLESS_SESSION_TIMEOUT_MS") ?? 60_000),
+      60_000,
+    ),
+    300_000,
+  );
+}
 
 function sanitizeRemoteCause(cause: unknown): string {
   return String(cause).replace(/([?&]token=)[^&\s)]+/gi, "$1<redacted>");
@@ -54,7 +57,7 @@ function browserlessCdpUrl(): string {
   endpoint.search = "";
   endpoint.searchParams.set("token", token);
   endpoint.searchParams.set("headless", "false");
-  endpoint.searchParams.set("timeout", String(sessionTimeoutMs));
+  endpoint.searchParams.set("timeout", String(getSessionTimeoutMs()));
   endpoint.searchParams.set(
     "launch",
     JSON.stringify({ args: ["--window-size=1280,900"] }),
@@ -72,6 +75,7 @@ export class BrowserlessBrowserProvider implements BrowserProvider {
     const startedAt = performance.now();
     let browser: Browser;
     try {
+      const { chromium } = await import("npm:playwright-core@1.58.2");
       browser = await chromium.connectOverCDP(endpoint, { timeout: 15_000 });
     } catch (cause) {
       throw new SpikeError(

@@ -15,6 +15,7 @@ import {
   type WatchDraft,
   watches,
 } from "./api.ts";
+import { formatDate } from "./utils/format.ts";
 
 const frequencies: Record<number, string> = {
   0: "Not scheduled",
@@ -260,14 +261,9 @@ export function WatchList() {
                   <div>
                     <dt>Last run</dt>
                     <dd>
-                      {lastRuns[item.id]
-                        ? new Intl.DateTimeFormat(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        }).format(new Date(lastRuns[item.id]))
-                        : "Not run yet"}
+                      {formatDate(lastRuns[item.id], undefined, {
+                        fallback: "Not run yet",
+                      })}
                     </dd>
                   </div>
                 </dl>

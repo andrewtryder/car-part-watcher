@@ -1,5 +1,10 @@
 # Car-Part.com Search Interface Discovery
 
+> [!WARNING]
+> **Historical Record (Non-Authoritative)**: This document is a dated
+> source-behavior research record from September 2026. It is preserved for
+> reference only and is not an active architecture or API specification.
+
 ## Scope and observation
 
 This is a discovery record of the public, normal browser flow observed on

@@ -84,12 +84,15 @@ export async function createListingUpdatedEvent(
     searchRunId: string;
     listingId: string;
     payload: unknown;
+    status?: "pending" | "delivered";
   },
 ) {
   const id = input.id ?? crypto.randomUUID();
+  const status = input.status ?? "pending";
+  const processedAt = status === "delivered" ? new Date() : null;
   await sql`insert into notification_events (id,watch_id,search_run_id,event_type,listing_id,payload,status,processed_at) values (${id},${input.watchId},${input.searchRunId},'listing_updated',${input.listingId},${
     JSON.stringify(input.payload)
-  }::jsonb,'delivered',now()) on conflict (search_run_id,listing_id,event_type) do nothing`;
+  }::jsonb,${status},${processedAt}) on conflict (search_run_id,listing_id,event_type) do nothing`;
 }
 export async function claimNotificationEvents(limit = 20) {
   return await getDatabase().begin(async (sql) => {
@@ -142,14 +145,16 @@ export async function listInboxNotifications(
   const sql = getDatabase();
   const watchId = options.watchId ?? null;
   const eventType = options.eventType ?? null;
+  const limit =
+    typeof options.limit === "number" && Number.isFinite(options.limit)
+      ? Math.min(Math.max(Math.floor(options.limit), 1), 100)
+      : 50;
   const rows =
     await sql`select * from notification_events where (${eventType}::text is null and event_type in ('new_listing', 'listing_updated') or event_type = ${eventType}) and (${
       options.unread ?? true
-    }=false or read_at is null) and (${watchId}::uuid is null or watch_id=${watchId}::uuid) order by created_at desc limit ${
-      Math.min(options.limit ?? 50, 100)
-    }`;
+    }=false or read_at is null) and (${watchId}::uuid is null or watch_id=${watchId}::uuid) order by created_at desc limit ${limit}`;
   const unread =
-    await sql`select count(*)::int as count from notification_events where (${eventType}::text is null and event_type in ('new_listing', 'listing_updated') or event_type = ${eventType}) and read_at is null`;
+    await sql`select count(*)::int as count from notification_events where (${eventType}::text is null and event_type in ('new_listing', 'listing_updated') or event_type = ${eventType}) and read_at is null and (${watchId}::uuid is null or watch_id=${watchId}::uuid)`;
   return {
     items: rows.map((r) => map(r as unknown as NotificationEventRow)),
     unreadCount: unread[0].count,
