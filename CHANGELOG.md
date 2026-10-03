@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0](https://github.com/andrewtryder/car-part-watcher/compare/v0.2.0...v0.3.0) (2026-10-03)
+
+
+### Features
+
+* **auth:** allow explicit console authentication opt-out ([ac6677f](https://github.com/andrewtryder/car-part-watcher/commit/ac6677f0dd2676fce67f247e7e2985e3889c82be))
+* **auth:** default console authentication to enabled ([e4ac6f2](https://github.com/andrewtryder/car-part-watcher/commit/e4ac6f2dd7842fef12431d0f0f8d72bbdc4f499d))
+* improve visibility into failed scheduled runs ([f0f0c01](https://github.com/andrewtryder/car-part-watcher/commit/f0f0c0196e8dbe2fd11001f0a54ffc39949a0409))
+* improve visibility into failed scheduled runs ([001eaf6](https://github.com/andrewtryder/car-part-watcher/commit/001eaf6169b8e73ae597a4d3169266034c080b5e))
+
+
+### Bug Fixes
+
+* **security:** avoid logging Browserless credential state ([3691428](https://github.com/andrewtryder/car-part-watcher/commit/3691428eb17f452710b181f682bdf45af392ac0c))
+* **security:** avoid logging Browserless credential state ([d1b7124](https://github.com/andrewtryder/car-part-watcher/commit/d1b7124e81d47af91343ca11e7ccbc1f1e45ca84))
+
+
+### Refactoring
+
+* atomic reconciliation outbox and modular HTTP route boundaries ([38eeab7](https://github.com/andrewtryder/car-part-watcher/commit/38eeab71b480e9ed0c8c7e6b5acbce74f7717402))
+* atomic reconciliation outbox and modular HTTP route boundaries ([10d568d](https://github.com/andrewtryder/car-part-watcher/commit/10d568d1a2569e571a134560a504b0ee6959d9f8))
+* complete modernization program ([a19243e](https://github.com/andrewtryder/car-part-watcher/commit/a19243e160dc993e838d318c3931836e0049b0db))
+* complete modernization program ([601ca84](https://github.com/andrewtryder/car-part-watcher/commit/601ca84d52620d3c6fe252b1e40b633f719333a1))
+* rename production spike types to CarPartSearch types ([2a6e745](https://github.com/andrewtryder/car-part-watcher/commit/2a6e7457229d144f29e57be2f7e706397c3bbc07))
+
 ## [0.2.0](https://github.com/andrewtryder/car-part-watcher/compare/v0.1.0...v0.2.0) (2026-10-03)
 
 ### Features
