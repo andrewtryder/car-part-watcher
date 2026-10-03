@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 denoland/deno:2.9.6
+FROM --platform=linux/amd64 denoland/deno:2.9.7
 
 USER root
 RUN apt-get update \
