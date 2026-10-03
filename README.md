@@ -47,9 +47,10 @@ execute the canonical verification gate (`deno task ci`) and the
 source-controlled database migration step (`deno task migrate`) before deploying
 the new revision.
 
-Deployments must set `APP_ENV=production`, `CONSOLE_AUTH_ENABLED=true`, and the
-`CONSOLE_USERNAME`/`CONSOLE_PASSWORD` secrets. Startup fails closed if those
-access controls are missing. See [security documentation](docs/security.md).
+Console authentication is enabled by default. When enabled, deployments must
+provide the `CONSOLE_USERNAME` and `CONSOLE_PASSWORD` secrets. To intentionally
+make the operational console and its API public, set
+`CONSOLE_AUTH_ENABLED=false`. See [security documentation](docs/security.md).
 
 ## Documentation
 

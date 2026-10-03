@@ -21,14 +21,50 @@ const environment = (values: Record<string, string | undefined>) => ({
   get: (name: string) => values[name],
 });
 
-Deno.test("startup validation permits explicitly disabled local auth", () => {
+Deno.test("startup validation defaults authentication to enabled", () => {
   assertEquals(
-    validateConsoleAuthConfig(environment({ APP_ENV: "development" })),
-    { enabled: false, username: undefined, password: undefined },
+    validateConsoleAuthConfig(environment({
+      CONSOLE_USERNAME: "operator",
+      CONSOLE_PASSWORD: "test-password",
+    })),
+    config,
   );
+
+  for (const value of [undefined, "unexpected"]) {
+    let failed = false;
+    try {
+      validateConsoleAuthConfig(environment({
+        CONSOLE_AUTH_ENABLED: value,
+      }));
+    } catch (error) {
+      failed = error instanceof Error &&
+        !error.message.includes("operator") &&
+        !error.message.includes("test-password");
+    }
+    assertEquals(failed, true);
+  }
 });
 
-Deno.test("startup validation requires complete authentication configuration", () => {
+Deno.test("startup validation permits explicit authentication opt-out", () => {
+  for (
+    const values of [
+      { CONSOLE_AUTH_ENABLED: "false" },
+      { APP_ENV: "production", CONSOLE_AUTH_ENABLED: "false" },
+      {
+        DENO_DEPLOYMENT_ID: "deployment",
+        CONSOLE_AUTH_ENABLED: "false",
+      },
+      { CONSOLE_AUTH_ENABLED: "FALSE" },
+    ]
+  ) {
+    assertEquals(
+      validateConsoleAuthConfig(environment(values)),
+      { enabled: false, username: undefined, password: undefined },
+    );
+  }
+});
+
+Deno.test("startup validation requires complete credentials when authentication is enabled", () => {
   assertEquals(
     validateConsoleAuthConfig(environment({
       APP_ENV: "production",
@@ -48,8 +84,6 @@ Deno.test("startup validation requires complete authentication configuration", (
         CONSOLE_AUTH_ENABLED: "true",
         CONSOLE_USERNAME: "operator",
       },
-      { APP_ENV: "production", CONSOLE_AUTH_ENABLED: "false" },
-      { DENO_DEPLOYMENT_ID: "deployment", CONSOLE_AUTH_ENABLED: "false" },
     ]
   ) {
     let failed = false;
@@ -151,15 +185,19 @@ Deno.test("missing configuration fails closed and malformed credentials do not c
   }
 });
 
-Deno.test("authentication is disabled unless explicitly enabled", async () => {
+Deno.test("authentication can be explicitly disabled", async () => {
   let reached = false;
+  const disabled = validateConsoleAuthConfig(environment({
+    APP_ENV: "production",
+    CONSOLE_AUTH_ENABLED: "false",
+  }));
   const response = await withConsoleAuthentication(
     request("/api/dashboard"),
     () => {
       reached = true;
       return new Response("handler reached");
     },
-    {},
+    disabled,
   );
   assertEquals(response.status, 200);
   assertEquals(reached, true);

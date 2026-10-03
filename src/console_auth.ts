@@ -13,30 +13,25 @@ export interface ConsoleAuthEnvironment {
 export function consoleAuthConfig(
   environment: ConsoleAuthEnvironment = Deno.env,
 ): ConsoleAuthConfig {
+  const enabled = environment.get("CONSOLE_AUTH_ENABLED")?.trim().toLowerCase();
   return {
-    enabled: environment.get("CONSOLE_AUTH_ENABLED")?.toLowerCase() === "true",
+    // Authentication is enabled by default. Only an explicit "false" disables
+    // the console/API boundary; unexpected values therefore fail closed.
+    enabled: enabled !== "false",
     username: environment.get("CONSOLE_USERNAME"),
     password: environment.get("CONSOLE_PASSWORD"),
   };
 }
 
 /**
- * Validates console access before the server starts. APP_ENV is the explicit
- * application setting; DENO_DEPLOYMENT_ID additionally protects Deploy previews
- * from accidentally starting with development access controls.
+ * Validates console access before the server starts. Authentication defaults to
+ * enabled in every environment; set CONSOLE_AUTH_ENABLED=false explicitly to
+ * run the console and its API without Basic Authentication.
  */
 export function validateConsoleAuthConfig(
   environment: ConsoleAuthEnvironment = Deno.env,
 ): ConsoleAuthConfig {
   const config = consoleAuthConfig(environment);
-  const deployed = Boolean(environment.get("DENO_DEPLOYMENT_ID"));
-  const production = environment.get("APP_ENV") === "production" || deployed;
-
-  if (production && !config.enabled) {
-    throw new Error(
-      "Console authentication must be enabled in production or deployed environments.",
-    );
-  }
   if (config.enabled && (!config.username || !config.password)) {
     throw new Error(
       "Console authentication requires CONSOLE_USERNAME and CONSOLE_PASSWORD.",
@@ -105,7 +100,10 @@ export async function authorizeConsoleRequest(
   return usernameMatches && passwordMatches ? undefined : unauthorized();
 }
 
-/** `/health` is public; Basic Auth is opt-in with CONSOLE_AUTH_ENABLED=true. */
+/**
+ * `/health` is public. Basic Auth is enabled by default and can be explicitly
+ * disabled with CONSOLE_AUTH_ENABLED=false.
+ */
 export async function withConsoleAuthentication(
   request: Request,
   next: () => Response | Promise<Response>,
