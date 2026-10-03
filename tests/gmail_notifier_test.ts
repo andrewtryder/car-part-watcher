@@ -90,3 +90,36 @@ Deno.test("omits absent optional email fields and Gmail notifier delegates trans
   assertEquals(sent?.messageId, "<event-1@car-part-watcher>");
   assertEquals(sent?.to, "recipient@example.test");
 });
+
+Deno.test("renders listing_updated email with changed fields", () => {
+  const updatedEvent: NotificationEventV1 = {
+    ...event,
+    eventId: "event-updated-1",
+    eventType: "listing_updated",
+    changes: [
+      { field: "price", oldValue: "$350", newValue: "$380" },
+      { field: "grade", oldValue: "B", newValue: "A" },
+    ],
+  };
+  const rendered = renderNotificationEmail(updatedEvent, settings);
+  assertEquals(
+    rendered.subject,
+    "[Car Part Watcher] CRV Front Bumper: Updated 2019 Honda CRV Bumper Assy (Front) includes cover — $380",
+  );
+  assertStringIncludes(
+    rendered.text,
+    "Updated part update for: CRV Front Bumper",
+  );
+  assertStringIncludes(rendered.text, "Changed Fields:");
+  assertStringIncludes(rendered.text, "price: $350 -> $380");
+  assertStringIncludes(rendered.text, "grade: B -> A");
+  assertStringIncludes(
+    rendered.html,
+    "<h2>Updated part update for: CRV Front Bumper</h2>",
+  );
+  assertStringIncludes(
+    rendered.html,
+    "<strong>price:</strong> $350 &rarr; $380",
+  );
+  assertStringIncludes(rendered.html, "<strong>grade:</strong> B &rarr; A");
+});

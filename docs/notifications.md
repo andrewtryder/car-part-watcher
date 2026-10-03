@@ -1,12 +1,15 @@
 # Notifications
 
 The durable PostgreSQL outbox contains `new_listing` and `listing_updated`
-events. Events are created only after reconciliation has committed, so notifier
-failures cannot roll back listing state or make inventory new again. The first
-successful run suppresses events by default (`notify_on_initial_run=false`);
-later genuinely new watch/listing relationships create one `new_listing` event
-per listing and search run, while detected modifications to existing listings
-create `listing_updated` events.
+events. Events are enqueued in the same database transaction as listing
+reconciliation and search run completion, ensuring atomic consistency: listings
+cannot be committed without their corresponding outbox events. Actual
+notification delivery (SMTP or logging) is executed post-commit, so external
+transport failures cannot roll back listing state or make inventory new again.
+The first successful run suppresses events by default
+(`notify_on_initial_run=false`); later genuinely new watch/listing relationships
+create one `new_listing` event per listing and search run, while detected
+modifications to existing listings create `listing_updated` events.
 
 Outbox events are claimed in small batches using `FOR UPDATE SKIP LOCKED` and
 retried up to three times with backoff. The outbox is processed immediately

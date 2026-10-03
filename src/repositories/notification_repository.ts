@@ -84,12 +84,15 @@ export async function createListingUpdatedEvent(
     searchRunId: string;
     listingId: string;
     payload: unknown;
+    status?: "pending" | "delivered";
   },
 ) {
   const id = input.id ?? crypto.randomUUID();
+  const status = input.status ?? "pending";
+  const processedAt = status === "delivered" ? new Date() : null;
   await sql`insert into notification_events (id,watch_id,search_run_id,event_type,listing_id,payload,status,processed_at) values (${id},${input.watchId},${input.searchRunId},'listing_updated',${input.listingId},${
     JSON.stringify(input.payload)
-  }::jsonb,'delivered',now()) on conflict (search_run_id,listing_id,event_type) do nothing`;
+  }::jsonb,${status},${processedAt}) on conflict (search_run_id,listing_id,event_type) do nothing`;
 }
 export async function claimNotificationEvents(limit = 20) {
   return await getDatabase().begin(async (sql) => {

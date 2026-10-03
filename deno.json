@@ -16,6 +16,8 @@
     "lint": "deno lint",
     "check": "deno check main.ts src/ scripts/ tests/ web/src/ web/vite.config.ts",
     "test": "deno test",
+    "test:unit": "deno test",
+    "test:integration": "deno test --env --allow-env --allow-net tests/reconciliation_test.ts",
     "web:dev": "deno run -A npm:vite --config web/vite.config.ts --host 0.0.0.0",
     "web:build": "deno run -A npm:vite build --config web/vite.config.ts",
     "web:preview": "deno run -A npm:vite preview --config web/vite.config.ts --host 0.0.0.0",
