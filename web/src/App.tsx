@@ -28,6 +28,10 @@ import { WatchDetail } from "./WatchDetail.tsx";
 import { GlobalRunHistory } from "./RunHistory.tsx";
 
 import { formatDate, formatDuration } from "./utils/format.ts";
+import {
+  failureMessage,
+  WatchHealthBadge,
+} from "./components/WatchHealthBadge.tsx";
 
 const frequency = (value: number) =>
   value === 1
@@ -200,6 +204,11 @@ export function DashboardPage() {
                 detail="Recent search runs"
               />
               <Stat
+                label="Failing searches"
+                value={data.summary.failingWatchCount ?? 0}
+                detail="Scheduled failures need attention"
+              />
+              <Stat
                 label="Catalog"
                 value={data.catalog ? "OK" : "—"}
                 detail={data.catalog
@@ -209,6 +218,40 @@ export function DashboardPage() {
             </div>
 
             {message && <p className="notice" aria-live="polite">{message}</p>}
+
+            {data.failingWatches?.length > 0 && (
+              <section className="section">
+                <div className="sectionHead">
+                  <h2>Needs attention</h2>
+                  <Link
+                    className="accentLink"
+                    to="/runs?status=failed&type=scheduled"
+                  >
+                    View failed runs
+                  </Link>
+                </div>
+                <div className="listCard">
+                  {data.failingWatches.map((watch) => (
+                    <article className="listRow" key={watch.id}>
+                      <div>
+                        <Link
+                          className="accentLink"
+                          to={`/watches/${watch.id}`}
+                        >
+                          {watch.name}
+                        </Link>
+                        <p className="muted">
+                          {failureMessage(watch.health) ??
+                            "Scheduled search failed"} ·{" "}
+                          {time(watch.health.lastFailureAt, data.timezone)}
+                        </p>
+                      </div>
+                      <WatchHealthBadge health={watch.health} />
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="section">
               <div className="sectionHead">
@@ -241,6 +284,7 @@ export function DashboardPage() {
                               : ""}
                           </p>
                           <div className="inlineStatus">
+                            <WatchHealthBadge health={watch.health} />
                             <Badge tone={watch.enabled ? "green" : "slate"}>
                               {watch.enabled ? "Enabled" : "Disabled"}
                             </Badge>

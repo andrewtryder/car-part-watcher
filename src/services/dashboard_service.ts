@@ -3,6 +3,8 @@ import { getDatabase } from "../db/database.ts";
 import { appTimezone } from "./scheduling_service.ts";
 import type { DashboardDto } from "../contracts/dashboard.ts";
 import type { RunDto } from "../contracts/runs.ts";
+import { listWatchHealth } from "../repositories/watch_health_repository.ts";
+import type { WatchHealthDto } from "../contracts/watches.ts";
 
 const asIso = (value: Date | string | null | undefined) =>
   value
@@ -13,12 +15,14 @@ const asIso = (value: Date | string | null | undefined) =>
 
 export async function getDashboard(): Promise<DashboardDto> {
   const sql = getDatabase();
-  const [watches, recentRuns, counts, catalog] = await Promise.all([
-    sql`with latest_runs as (select distinct on (watch_id) * from search_runs order by watch_id, started_at desc) select w.*, r.id as run_id, r.status as run_status, r.run_type, r.started_at, r.completed_at, r.listing_count, r.new_listing_count, r.changed_count, r.pages_fetched, r.error_code, r.error_message from watches w left join latest_runs r on r.watch_id=w.id order by w.created_at desc`,
-    sql`select r.id, r.watch_id, w.name as watch_name, r.status, r.run_type, r.started_at, r.completed_at, r.listing_count, r.new_listing_count, r.changed_count, r.pages_fetched, r.error_code, r.error_message from search_runs r join watches w on w.id=r.watch_id order by r.started_at desc limit 20`,
-    sql`select count(*) filter (where enabled)::int as active_watch_count, count(*) filter (where not enabled)::int as disabled_watch_count, (select count(*)::int from notification_events e join notification_inbox_state i on i.event_id=e.id where e.event_type='new_listing' and i.read_at is null) as new_part_count, (select count(*)::int from notification_deliveries where status='pending') as pending_notification_count, (select count(*)::int from notification_deliveries where status='failed') as failed_notification_count, (select max(started_at) from search_runs) as last_run_at, (select status from search_runs order by started_at desc limit 1) as last_run_status from watches`,
-    getCatalog(),
-  ]);
+  const [watches, recentRuns, counts, catalog, healthByWatchId] = await Promise
+    .all([
+      sql`with latest_runs as (select distinct on (watch_id) * from search_runs order by watch_id, started_at desc) select w.*, r.id as run_id, r.status as run_status, r.run_type, r.started_at, r.completed_at, r.listing_count, r.new_listing_count, r.changed_count, r.pages_fetched, r.error_code, r.error_message from watches w left join latest_runs r on r.watch_id=w.id order by w.created_at desc`,
+      sql`select r.id, r.watch_id, w.name as watch_name, r.status, r.run_type, r.started_at, r.completed_at, r.listing_count, r.new_listing_count, r.changed_count, r.pages_fetched, r.error_code, r.error_message from search_runs r join watches w on w.id=r.watch_id order by r.started_at desc limit 20`,
+      sql`select count(*) filter (where enabled)::int as active_watch_count, count(*) filter (where not enabled)::int as disabled_watch_count, (select count(*)::int from notification_events e join notification_inbox_state i on i.event_id=e.id where e.event_type='new_listing' and i.read_at is null) as new_part_count, (select count(*)::int from notification_deliveries where status='pending') as pending_notification_count, (select count(*)::int from notification_deliveries where status='failed') as failed_notification_count, (select max(started_at) from search_runs) as last_run_at, (select status from search_runs order by started_at desc limit 1) as last_run_status from watches`,
+      getCatalog(),
+      listWatchHealth(),
+    ]);
   const mapRun = (
     row: Record<string, unknown> | undefined | null,
   ): RunDto | undefined =>
@@ -46,25 +50,12 @@ export async function getDashboard(): Promise<DashboardDto> {
       })
       : undefined;
   const summary = counts[0];
-  return {
-    timezone: appTimezone(),
-    summary: {
-      activeWatchCount: summary.active_watch_count ?? 0,
-      disabledWatchCount: summary.disabled_watch_count ?? 0,
-      newPartCount: summary.new_part_count ?? 0,
-      pendingNotificationCount: summary.pending_notification_count ?? 0,
-      failedNotificationCount: summary.failed_notification_count ?? 0,
-      lastRunAt: asIso(summary.last_run_at),
-      lastRunStatus: summary.last_run_status ?? undefined,
-    },
-    catalog: catalog &&
-      {
-        fetchedAt: catalog.fetchedAt,
-        yearCount: catalog.payload.years.length,
-        makeModelCount: catalog.payload.makeModels.length,
-        partCount: catalog.payload.parts.length,
-      },
-    watches: (watches as unknown as Record<string, unknown>[]).map((row) => ({
+  const neverRunHealth: WatchHealthDto = {
+    status: "never_run",
+    consecutiveScheduledFailures: 0,
+  };
+  const dashboardWatches = (watches as unknown as Record<string, unknown>[])
+    .map((row) => ({
       id: row.id as string,
       name: row.name as string,
       enabled: Boolean(row.enabled),
@@ -80,7 +71,33 @@ export async function getDashboard(): Promise<DashboardDto> {
         frequency: row.run_frequency as number,
       },
       lastRun: row.run_id ? mapRun(row) : undefined,
-    })),
+      health: healthByWatchId.get(row.id as string) ?? neverRunHealth,
+    }));
+  return {
+    timezone: appTimezone(),
+    summary: {
+      activeWatchCount: summary.active_watch_count ?? 0,
+      disabledWatchCount: summary.disabled_watch_count ?? 0,
+      newPartCount: summary.new_part_count ?? 0,
+      pendingNotificationCount: summary.pending_notification_count ?? 0,
+      failedNotificationCount: summary.failed_notification_count ?? 0,
+      failingWatchCount:
+        dashboardWatches.filter((watch) => watch.health.status === "failing")
+          .length,
+      lastRunAt: asIso(summary.last_run_at),
+      lastRunStatus: summary.last_run_status ?? undefined,
+    },
+    catalog: catalog &&
+      {
+        fetchedAt: catalog.fetchedAt,
+        yearCount: catalog.payload.years.length,
+        makeModelCount: catalog.payload.makeModels.length,
+        partCount: catalog.payload.parts.length,
+      },
+    watches: dashboardWatches,
+    failingWatches: dashboardWatches.filter((watch) =>
+      watch.health.status === "failing"
+    ).map(({ id, name, health }) => ({ id, name, health })),
     recentRuns: (recentRuns as unknown as Record<string, unknown>[]).map(
       (row) => {
         const run = mapRun(row)!;

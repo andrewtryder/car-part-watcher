@@ -24,10 +24,10 @@ import {
   formatFieldLabel,
 } from "./utils/format.ts";
 
-const draftFor = (value: Watch): WatchDraft => ({
-  ...value,
-  refinementLabel: value.refinement?.label,
-});
+const draftFor = (value: Watch): WatchDraft => {
+  const { health: _health, ...draft } = value;
+  return { ...draft, refinementLabel: value.refinement?.label };
+};
 
 const formatDate = (value: string | undefined, timezone: string) =>
   formatWithDate(value, timezone, {

@@ -27,12 +27,27 @@ export interface WatchDto {
   notifyOnInitialRun: boolean;
   createdAt: string;
   updatedAt: string;
+  health: WatchHealthDto;
+}
+
+export type WatchHealthStatus = "healthy" | "failing" | "never_run";
+
+export interface WatchHealthDto {
+  status: WatchHealthStatus;
+  latestRunStatus?: RunDto["status"];
+  latestScheduledRunStatus?: RunDto["status"];
+  lastSuccessfulAt?: string;
+  lastScheduledRunAt?: string;
+  lastFailureAt?: string;
+  lastFailureCode?: string;
+  lastFailureMessage?: string;
+  consecutiveScheduledFailures: number;
 }
 
 export type WatchDraftDto =
   & Omit<
     WatchDto,
-    "id" | "createdAt" | "updatedAt" | "refinement"
+    "id" | "createdAt" | "updatedAt" | "refinement" | "health"
   >
   & { refinementLabel?: string };
 
@@ -87,4 +102,5 @@ export interface DashboardWatchDto {
   };
   schedule: { enabled: boolean; frequency: number };
   lastRun?: RunDto;
+  health: WatchHealthDto;
 }

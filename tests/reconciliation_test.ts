@@ -14,6 +14,8 @@ import type { CarPartSearchResult } from "../src/types.ts";
 import type { CarPartSearchClient } from "../src/search/car_part_search_client.ts";
 import { getDatabase } from "../src/db/database.ts";
 import { saveWatch, type Watch } from "../src/repositories/watch_repository.ts";
+import { listWatchHealth } from "../src/repositories/watch_health_repository.ts";
+import { getDashboard } from "../src/services/dashboard_service.ts";
 
 const sampleListing1: NormalizedListing = {
   source: "car-part",
@@ -108,6 +110,110 @@ const hasEnv =
 const databaseUrl = hasEnv ? Deno.env.get("DATABASE_URL") : undefined;
 
 if (databaseUrl) {
+  Deno.test("integration: watch health derives scheduled failures without manual resets", async () => {
+    const makeWatch = (name: string): Watch => ({
+      id: crypto.randomUUID(),
+      name,
+      enabled: true,
+      year: "2015",
+      makeModel: "Honda Accord",
+      part: "Alternator",
+      sort: "price",
+      scheduleEnabled: true,
+      runFrequency: 1,
+      notifyOnInitialRun: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const failing = makeWatch("Health failing watch");
+    const healthy = makeWatch("Health healthy watch");
+    const neverRun = makeWatch("Health never-run watch");
+    const sql = getDatabase();
+    const addRun = async (
+      watchId: string,
+      startedAt: string,
+      runType: "manual" | "scheduled",
+      status: "running" | "succeeded" | "failed",
+      errorCode?: string,
+    ) => {
+      await sql`insert into search_runs (id,watch_id,status,started_at,completed_at,run_type,error_code,error_message) values (${crypto.randomUUID()},${watchId},${status},${new Date(
+        startedAt,
+      )},${status === "running" ? null : new Date(startedAt)},${runType},${
+        errorCode ?? null
+      },${errorCode ? "Safe failure detail" : null})`;
+    };
+    await Promise.all([
+      saveWatch(failing),
+      saveWatch(healthy),
+      saveWatch(neverRun),
+    ]);
+    try {
+      await addRun(
+        failing.id,
+        "2026-01-01T00:00:00Z",
+        "scheduled",
+        "succeeded",
+      );
+      await addRun(
+        failing.id,
+        "2026-01-02T00:00:00Z",
+        "scheduled",
+        "failed",
+        "REMOTE_BROWSER_DISCONNECTED",
+      );
+      await addRun(failing.id, "2026-01-03T00:00:00Z", "manual", "succeeded");
+      await addRun(
+        failing.id,
+        "2026-01-04T00:00:00Z",
+        "scheduled",
+        "failed",
+        "ACCESS_CHALLENGE",
+      );
+      await addRun(failing.id, "2026-01-05T00:00:00Z", "scheduled", "running");
+      await addRun(
+        healthy.id,
+        "2026-01-01T00:00:00Z",
+        "scheduled",
+        "failed",
+        "RUN_TIMEOUT",
+      );
+      await addRun(
+        healthy.id,
+        "2026-01-02T00:00:00Z",
+        "scheduled",
+        "succeeded",
+      );
+
+      const health = await listWatchHealth();
+      assertEquals(health.get(failing.id), {
+        status: "failing",
+        latestRunStatus: "running",
+        latestScheduledRunStatus: "running",
+        lastSuccessfulAt: "2026-01-03T00:00:00.000Z",
+        lastScheduledRunAt: "2026-01-05T00:00:00.000Z",
+        lastFailureAt: "2026-01-04T00:00:00.000Z",
+        lastFailureCode: "ACCESS_CHALLENGE",
+        lastFailureMessage: "Safe failure detail",
+        consecutiveScheduledFailures: 2,
+      });
+      assertEquals(health.get(healthy.id)?.status, "healthy");
+      assertEquals(health.get(healthy.id)?.consecutiveScheduledFailures, 0);
+      assertEquals(health.get(neverRun.id)?.status, "never_run");
+      assertEquals(
+        health.get(neverRun.id)?.consecutiveScheduledFailures,
+        0,
+      );
+      const dashboard = await getDashboard();
+      assertEquals(
+        dashboard.failingWatches.some((watch) => watch.id === failing.id),
+        true,
+      );
+      assertEquals(dashboard.summary.failingWatchCount >= 1, true);
+    } finally {
+      await sql`delete from watches where id in (${failing.id},${healthy.id},${neverRun.id})`;
+    }
+  });
+
   Deno.test("integration: executeWatch throws for non-existent watch", async () => {
     await assertRejects(
       () =>

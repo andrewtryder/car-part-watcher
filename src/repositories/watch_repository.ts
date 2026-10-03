@@ -1,5 +1,7 @@
 import { getDatabase } from "../db/database.ts";
 import type { CarPartSearchRequest } from "../types.ts";
+import type { WatchHealthDto } from "../contracts/watches.ts";
+import { listWatchHealth } from "./watch_health_repository.ts";
 export interface Watch extends CarPartSearchRequest {
   id: string;
   name: string;
@@ -10,6 +12,8 @@ export interface Watch extends CarPartSearchRequest {
   runFrequency: 1 | 2 | 3;
   notifyOnInitialRun: boolean;
 }
+
+export type WatchReadModel = Watch & { health: WatchHealthDto };
 
 interface WatchRow {
   id: string;
@@ -29,7 +33,12 @@ interface WatchRow {
   notify_on_initial_run?: boolean;
 }
 
-const map = (row: WatchRow): Watch => ({
+const neverRunHealth: WatchHealthDto = {
+  status: "never_run",
+  consecutiveScheduledFailures: 0,
+};
+
+const map = (row: WatchRow, health = neverRunHealth): WatchReadModel => ({
   id: row.id,
   name: row.name,
   enabled: row.enabled,
@@ -47,16 +56,25 @@ const map = (row: WatchRow): Watch => ({
   scheduleEnabled: row.schedule_enabled ?? true,
   runFrequency: (row.run_frequency ?? 1) as 1 | 2 | 3,
   notifyOnInitialRun: row.notify_on_initial_run ?? false,
+  health,
 });
 export async function listWatches() {
-  const rows =
-    await getDatabase()`select * from watches order by created_at desc`;
-  return rows.map((r) => map(r as unknown as WatchRow));
+  const [rows, health] = await Promise.all([
+    getDatabase()`select * from watches order by created_at desc`,
+    listWatchHealth(),
+  ]);
+  return rows.map((r) => {
+    const row = r as unknown as WatchRow;
+    return map(row, health.get(row.id) ?? neverRunHealth);
+  });
 }
 export async function getWatch(id: string) {
-  const rows = await getDatabase()`select * from watches where id = ${id}`;
+  const [rows, health] = await Promise.all([
+    getDatabase()`select * from watches where id = ${id}`,
+    listWatchHealth(),
+  ]);
   const row = rows[0] as unknown as WatchRow | undefined;
-  return row ? map(row) : undefined;
+  return row ? map(row, health.get(row.id) ?? neverRunHealth) : undefined;
 }
 export async function saveWatch(watch: Watch) {
   const sql = getDatabase();
