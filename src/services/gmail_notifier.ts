@@ -10,14 +10,31 @@ export interface RenderedNotificationEmail { subject: string; text: string; html
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
 const link = (label: string, value?: string) => value ? `<p><a href="${escapeHtml(value)}">${escapeHtml(label)}</a></p>` : "";
 const line = (label: string, value?: string) => value ? `${label}: ${value}` : "";
+const linkedImage = (imageUrl?: string, targetUrl?: string) => {
+  if (!imageUrl) return "";
+  const image = `<img src="${escapeHtml(imageUrl)}" alt="Part thumbnail" width="240">`;
+  return targetUrl ? `<p><a href="${escapeHtml(targetUrl)}">${image}</a></p>` : `<p>${image}</p>`;
+};
 
 export function renderNotificationEmail(event: NotificationEventV1, settings: EmailNotificationSettings): RenderedNotificationEmail {
   const title = event.listing.title.slice(0, 180);
   const subject = `${settings.subjectPrefix} ${event.watch.name}: New ${title}${event.listing.price ? ` — ${event.listing.price}` : ""}`.slice(0, 500);
   const savedSearch = settings.appBaseUrl ? `${settings.appBaseUrl.replace(/\/$/, "")}/watches/${event.watch.id}` : undefined;
+  const listingUrl = event.listing.listingUrl ?? event.listing.photoUrl;
+  const photoUrl = event.listing.photoUrl;
+  const combinedListingAndPhotos = Boolean(listingUrl && photoUrl && listingUrl === photoUrl);
   const details = [line("Price", event.listing.price), line("Recycler", event.listing.recyclerName), line("Location", event.listing.location), line("Stock #", event.listing.stockNumber), line("Grade", event.listing.grade), line("Damage", event.listing.damageCode)].filter(Boolean);
-  const text = [`New part found for: ${event.watch.name}`, "", title, event.listing.description ?? "", "", ...details, event.listing.photoUrl ? `View Photos:\n${event.listing.photoUrl}` : "", event.listing.quoteUrl ? `Request Quote:\n${event.listing.quoteUrl}` : "", savedSearch ? `Saved Search:\n${savedSearch}` : ""].filter(Boolean).join("\n");
-  const html = `<h2>New part found for: ${escapeHtml(event.watch.name)}</h2><h3>${escapeHtml(title)}</h3>${event.listing.imageUrl ? `<img src="${escapeHtml(event.listing.imageUrl)}" alt="Part thumbnail" width="160">` : ""}${event.listing.description ? `<p>${escapeHtml(event.listing.description)}</p>` : ""}<ul>${details.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul>${link("View Photos", event.listing.photoUrl)}${link("Request Quote", event.listing.quoteUrl)}${link("View Saved Search", savedSearch)}`;
+  const sourceLinks = combinedListingAndPhotos
+    ? [`View Listing & Photos:\n${listingUrl}`]
+    : [listingUrl ? `View Listing:\n${listingUrl}` : "", photoUrl ? `View Photos:\n${photoUrl}` : ""];
+  const text = [`New part found for: ${event.watch.name}`, "", title, event.listing.description ?? "", "", ...details, ...sourceLinks, event.listing.quoteUrl ? `Request Quote:\n${event.listing.quoteUrl}` : "", savedSearch ? `Saved Search:\n${savedSearch}` : ""].filter(Boolean).join("\n");
+  const titleHtml = listingUrl
+    ? `<h3><a href="${escapeHtml(listingUrl)}">${escapeHtml(title)}</a></h3>`
+    : `<h3>${escapeHtml(title)}</h3>`;
+  const sourceLinkHtml = combinedListingAndPhotos
+    ? link("View Listing & Photos", listingUrl)
+    : `${link("View Listing", listingUrl)}${link("View Photos", photoUrl)}`;
+  const html = `<h2>New part found for: ${escapeHtml(event.watch.name)}</h2>${titleHtml}${linkedImage(event.listing.imageUrl, photoUrl ?? listingUrl)}${event.listing.description ? `<p>${escapeHtml(event.listing.description)}</p>` : ""}<ul>${details.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul>${sourceLinkHtml}${link("Request Quote", event.listing.quoteUrl)}${link("View Saved Search", savedSearch)}`;
   return { subject, text, html };
 }
 

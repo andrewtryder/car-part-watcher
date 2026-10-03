@@ -34,6 +34,8 @@ const sampleListing: NormalizedListing = {
   priceAmount: 107,
   recyclerName: "Metro Auto Salvage",
   recyclerLocation: "Queens, NY",
+  imageUrl: "https://image.test/thumb.jpg",
+  photoUrl: "https://image.test/part-detail",
   raw: {
     year: "2015",
     makeModel: "Honda Accord",
@@ -62,6 +64,8 @@ Deno.test("canonical event builder constructs complete NotificationEventV1", () 
   assertEquals(event.listing.price, "$107");
   assertEquals(event.listing.location, "Queens, NY");
   assertEquals(event.listing.stockNumber, "STK-100");
+  assertEquals(event.listing.listingUrl, "https://image.test/part-detail");
+  assertEquals(event.listing.photoUrl, "https://image.test/part-detail");
   assertEquals(event.schedule.slot, "morning");
 });
 
