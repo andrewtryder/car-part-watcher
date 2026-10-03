@@ -1,9 +1,9 @@
 # Web console
 
-The unauthenticated operational console is a React 19 + TypeScript + Vite 8
-single-page application styled with Tailwind CSS 4. Source is under `web/src`;
-Vite emits `web/dist`, which the Deno HTTP server serves while retaining
-`/api/*` for the backend.
+The operational console is a React 19 + TypeScript + Vite 8 single-page
+application styled with Tailwind CSS 4. Source is under `web/src`; Vite emits
+`web/dist`, which the Deno HTTP server serves while retaining `/api/*` for the
+backend.
 
 Run `deno task web:dev` alongside `deno task serve` for local development. Vite
 proxies `/api` to the local Deno server. `deno task web:build` creates the
@@ -12,19 +12,18 @@ web build before the existing `deno task migrate` pre-deploy migration.
 
 The Dashboard uses `GET /api/dashboard`, an aggregate endpoint for watches,
 latest and recent runs, catalog health, and notification counts. "New Parts"
-means unread `new_listing` notification events (`read_at is null`). The React
-console includes Dashboard, Saved Searches create/edit/detail, New Parts with
-read state and watch filtering, and global/per-watch run history. It remains
-intentionally unauthenticated and must not be shared publicly until access
-control is added.
+means unread `new_listing` and `listing_updated` notification events
+(`read_at is null`). The React console includes Dashboard, Saved Searches
+create/edit/detail, New Parts with read state and watch filtering, and
+global/per-watch run history.
 
-The optional single-user access control is browser-native HTTP Basic
-Authentication. There is no React login screen and the frontend does not store
-or inject credentials. Once the browser authenticates the same-origin SPA, its
-existing API calls continue normally. `GET /health` is the only public route;
-all SPA routes, assets, read APIs, and mutations require the Deno Deploy
-`CONSOLE_USERNAME` and `CONSOLE_PASSWORD` secrets when
-`CONSOLE_AUTH_ENABLED=true`; it defaults to false.
+Access control is provided by a browser-native HTTP Basic Authentication layer.
+There is no React login screen and the frontend does not store or inject
+credentials. Once the browser authenticates the same-origin SPA, its API calls
+continue normally. `GET /health` is the only public route; all SPA routes,
+assets, read APIs, and mutations require the `CONSOLE_USERNAME` and
+`CONSOLE_PASSWORD` secrets when `CONSOLE_AUTH_ENABLED=true`. It defaults to
+false for local development.
 
 ## Production verification — 2026-09-13
 

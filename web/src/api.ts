@@ -15,6 +15,7 @@ export type Dashboard = {
   timezone: string;
   summary: {
     activeWatchCount: number;
+    disabledWatchCount?: number;
     newPartCount: number;
     pendingNotificationCount: number;
     failedNotificationCount: number;
@@ -45,9 +46,13 @@ export type Dashboard = {
   >;
   recentRuns: Array<Run & { watchId: string; watchName: string }>;
 };
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
+async function call<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs = 30_000,
+): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90_000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(path, { ...init, signal: controller.signal });
     const data = res.status === 204 ? undefined : await res.json();
@@ -59,11 +64,11 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export const dashboard = () => call<Dashboard>("/api/dashboard");
 export const runWatch = (id: string) =>
-  call<Run>(`/api/watches/${id}/run`, { method: "POST" });
+  call<Run>(`/api/watches/${id}/run`, { method: "POST" }, 125_000);
 export const refreshCatalog = () =>
   call<{ counts: Record<string, number> }>("/api/catalog/refresh", {
     method: "POST",
-  });
+  }, 45_000);
 export type ListingChange = {
   field: string;
   oldValue?: string;
@@ -162,7 +167,7 @@ export const resolveWatch = (
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, 45_000);
 export const saveWatch = (body: WatchDraft, id?: string) =>
   call<Watch>(id ? `/api/watches/${id}` : "/api/watches", {
     method: id ? "PUT" : "POST",

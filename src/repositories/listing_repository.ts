@@ -236,10 +236,11 @@ export async function associateListing(
 }
 export async function listWatchListings(watchId: string, limit = 500) {
   const sql = getDatabase();
+  const safeLimit = typeof limit === "number" && Number.isFinite(limit)
+    ? Math.min(Math.max(Math.floor(limit), 1), 1000)
+    : 50;
   const rows =
-    await sql`select l.*, wl.first_seen_at as watch_first_seen_at, wl.last_seen_at as watch_last_seen_at from watch_listings wl join listings l on l.id=wl.listing_id where wl.watch_id=${watchId} order by wl.last_seen_at desc limit ${
-      Math.min(Math.max(limit, 1), 1000)
-    }`;
+    await sql`select l.*, wl.first_seen_at as watch_first_seen_at, wl.last_seen_at as watch_last_seen_at from watch_listings wl join listings l on l.id=wl.listing_id where wl.watch_id=${watchId} order by wl.last_seen_at desc limit ${safeLimit}`;
   const listingIds = rows.map((r) => (r as unknown as { id: string }).id);
   const changesByListingId = new Map<string, ListingFieldChange[]>();
   if (listingIds.length > 0) {

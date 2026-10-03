@@ -10,47 +10,12 @@ import {
   type Watch,
   watches,
 } from "./api.ts";
+import { formatDate, formatFieldLabel } from "./utils/format.ts";
 
-const date = (value: string, timezone: string) =>
-  new Intl.DateTimeFormat(undefined, {
-    timeZone: timezone,
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
+const date = (value: string, timezone: string) => formatDate(value, timezone);
 
 const joined = (...parts: Array<string | undefined>) =>
   parts.filter(Boolean).join(" · ");
-
-function formatFieldLabel(field: string): string {
-  switch (field) {
-    case "price_display":
-    case "priceDisplay":
-      return "Price";
-    case "grade":
-      return "Grade";
-    case "description":
-      return "Description";
-    case "damage_code":
-    case "damageCode":
-      return "Damage Code";
-    case "recycler_name":
-    case "recyclerName":
-      return "Recycler";
-    case "recycler_location":
-    case "recyclerLocation":
-      return "Location";
-    case "stock_number":
-    case "stockNumber":
-      return "Stock #";
-    case "photo_url":
-    case "photoUrl":
-      return "Photos";
-    default:
-      return field;
-  }
-}
 
 export function Inbox() {
   const [params, setParams] = useSearchParams();

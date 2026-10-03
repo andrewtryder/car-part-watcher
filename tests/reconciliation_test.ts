@@ -1,156 +1,218 @@
-import { assertEquals, assertExists } from "jsr:@std/assert@1.0.19";
-import { sourceKey } from "../src/identity.ts";
-import type { PartsSource } from "../src/parts_source.ts";
-import type {
-  CarPartListing,
-  CarPartSearchRequest,
-  SpikeResult,
-} from "../src/types.ts";
-import { WatchStore } from "../src/watch_store.ts";
+import {
+  assertEquals,
+  assertExists,
+  assertRejects,
+  assertThrows,
+} from "jsr:@std/assert@1.0.19";
+import {
+  deduplicateNormalized,
+  ListingIdentityCollisionError,
+} from "../src/reconciliation.ts";
+import { executeWatch } from "../src/services/reconciliation_service.ts";
+import type { NormalizedListing } from "../src/listing_normalizer.ts";
+import type { SpikeResult } from "../src/types.ts";
+import { getDatabase } from "../src/db/database.ts";
+import { saveWatch, type Watch } from "../src/repositories/watch_repository.ts";
 
-const request: CarPartSearchRequest = {
+const sampleListing1: NormalizedListing = {
+  source: "car-part",
+  sourceKey: "seller1|stk100|2015|honda accord|alternator",
+  identityMethod: "seller_stock_vehicle_part",
   year: "2015",
   makeModel: "Honda Accord",
   part: "Alternator",
-  location: "New York",
-  sort: "price",
-};
-const listing: CarPartListing = {
-  year: "2015",
-  makeModel: "Honda Accord",
-  part: "Alternator",
-  sellerUserId: "1213",
-  partGuid: "part-guid-a",
-  stockNumber: "ABC123",
-  recycler: { name: "Example Recycler" },
-  price: { amount: 107, currency: "USD", display: "$107" },
+  sellerUserId: "seller1",
+  stockNumber: "stk100",
+  priceAmount: 107,
+  priceDisplay: "$107",
+  recyclerName: "Sample Recycler",
+  raw: {
+    year: "2015",
+    makeModel: "Honda Accord",
+    part: "Alternator",
+    stockNumber: "stk100",
+  },
 };
 
-function result(listings: CarPartListing[]): SpikeResult {
-  return {
-    search: request,
-    results: { count: listings.length, hasNextPage: false, listings },
+const sampleListing2: NormalizedListing = {
+  source: "car-part",
+  sourceKey: "seller2|stk200|2016|toyota camry|starter",
+  identityMethod: "seller_stock_vehicle_part",
+  year: "2016",
+  makeModel: "Toyota Camry",
+  part: "Starter",
+  sellerUserId: "seller2",
+  stockNumber: "stk200",
+  priceAmount: 85,
+  priceDisplay: "$85",
+  recyclerName: "Another Recycler",
+  raw: {
+    year: "2016",
+    makeModel: "Toyota Camry",
+    part: "Starter",
+    stockNumber: "stk200",
+  },
+};
+
+Deno.test("deduplicateNormalized keeps distinct listings", () => {
+  const result = deduplicateNormalized([sampleListing1, sampleListing2]);
+  assertEquals(result.length, 2);
+  assertEquals(result[0].sourceKey, sampleListing1.sourceKey);
+  assertEquals(result[1].sourceKey, sampleListing2.sourceKey);
+});
+
+Deno.test("deduplicateNormalized deduplicates identical rows sharing sourceKey", () => {
+  const duplicate = { ...sampleListing1 };
+  const result = deduplicateNormalized([sampleListing1, duplicate]);
+  assertEquals(result.length, 1);
+  assertEquals(result[0].sourceKey, sampleListing1.sourceKey);
+});
+
+Deno.test("deduplicateNormalized throws ListingIdentityCollisionError on visible signature collision", () => {
+  const colliding: NormalizedListing = {
+    ...sampleListing1,
+    year: "2018", // different vehicle signature with same sourceKey
   };
-}
-class FakeSource implements PartsSource {
-  constructor(private readonly next: () => Promise<SpikeResult>) {}
-  search(_request: CarPartSearchRequest) {
-    return this.next();
-  }
-}
-async function freshStore() {
-  const kv = await Deno.openKv(":memory:");
-  return { kv, store: new WatchStore(kv) };
-}
-
-Deno.test("first successful result creates a listing and watch association", async () => {
-  const { kv, store } = await freshStore();
-  try {
-    const watch = await store.createWatch(request);
-    const summary = await store.runWatch(
-      watch,
-      new FakeSource(() => Promise.resolve(result([listing]))),
-    );
-    assertEquals(summary.newForWatch, 1);
-    assertEquals(summary.newListings.length, 1);
-    assertEquals(summary.updatedListings, 0);
-    const stored = await store.getListing((await sourceKey(listing))!);
-    assertExists(stored);
-    assertEquals(stored.listing.price?.amount, 107);
-    assertExists(await store.getWatchListing(watch.id, stored.id));
-  } finally {
-    await kv.close();
-  }
+  const err = assertThrows(
+    () => deduplicateNormalized([sampleListing1, colliding]),
+    ListingIdentityCollisionError,
+  );
+  assertEquals(err.code, "LISTING_IDENTITY_COLLISION");
 });
 
-Deno.test("partGuid churn does not make the same stock item new again", async () => {
-  const { kv, store } = await freshStore();
-  try {
-    const watch = await store.createWatch(request);
-    await store.runWatch(
-      watch,
-      new FakeSource(() => Promise.resolve(result([listing]))),
+// Database-backed integration tests (active when DATABASE_URL is accessible)
+const hasEnv =
+  (await Deno.permissions.query({ name: "env", variable: "DATABASE_URL" }))
+    .state === "granted";
+const databaseUrl = hasEnv ? Deno.env.get("DATABASE_URL") : undefined;
+
+if (databaseUrl) {
+  Deno.test("integration: executeWatch throws for non-existent watch", async () => {
+    await assertRejects(
+      () => executeWatch("00000000-0000-0000-0000-000000000000"),
+      Error,
+      "Watch not found",
     );
-    const repeated = {
-      ...listing,
-      partGuid: "part-guid-b",
+  });
+  Deno.test("integration: executeWatch disabled watch returns undefined on scheduled run", async () => {
+    const testWatch: Watch = {
+      id: crypto.randomUUID(),
+      name: "Disabled Watch Test",
+      enabled: false,
+      year: "2015",
+      makeModel: "Honda Accord",
+      part: "Alternator",
+      sort: "price",
+      scheduleEnabled: false,
+      runFrequency: 1,
+      notifyOnInitialRun: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-    const summary = await store.runWatch(
-      watch,
-      new FakeSource(() => Promise.resolve(result([repeated]))),
-    );
-    assertEquals(summary.newForWatch, 0);
-    assertEquals(summary.updatedListings, 1);
-  } finally {
-    await kv.close();
-  }
-});
+    await saveWatch(testWatch);
+    try {
+      const summary = await executeWatch(testWatch.id, {
+        runType: "scheduled",
+        scheduledKey: `watch:${testWatch.id}:test`,
+      });
+      assertEquals(summary, undefined);
+    } finally {
+      const sql = getDatabase();
+      await sql`delete from watches where id=${testWatch.id}`;
+    }
+  });
 
-Deno.test("repeat result is not new and updates mutable listing fields", async () => {
-  const { kv, store } = await freshStore();
-  try {
-    const watch = await store.createWatch(request);
-    await store.runWatch(
-      watch,
-      new FakeSource(() => Promise.resolve(result([listing]))),
-    );
-    const revised = {
-      ...listing,
-      price: { amount: 125, currency: "USD", display: "$125" },
-      grade: "A",
-      description: "Repriced alternator",
+  Deno.test("integration: executeWatch full cycle with fake runner", async () => {
+    const testWatch: Watch = {
+      id: crypto.randomUUID(),
+      name: "Reconciliation Service Test",
+      enabled: true,
+      year: "2015",
+      makeModel: "Honda Accord",
+      part: "Alternator",
+      sort: "price",
+      scheduleEnabled: true,
+      runFrequency: 1,
+      notifyOnInitialRun: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-    const summary = await store.runWatch(
-      watch,
-      new FakeSource(() => Promise.resolve(result([revised]))),
-    );
-    assertEquals(summary.newForWatch, 0);
-    assertEquals(summary.updatedListings, 1);
-    const stored = await store.getListing((await sourceKey(listing))!);
-    assertEquals(stored?.listing.price?.amount, 125);
-    assertEquals(stored?.listing.grade, "A");
-    assertEquals(stored?.listing.description, "Repriced alternator");
-  } finally {
-    await kv.close();
-  }
-});
+    await saveWatch(testWatch);
 
-Deno.test("the same listing is new to each independent watch", async () => {
-  const { kv, store } = await freshStore();
-  try {
-    const first = await store.createWatch(request);
-    const second = await store.createWatch({
-      ...request,
-      location: "New Jersey",
-    });
-    const source = new FakeSource(() => Promise.resolve(result([listing])));
-    assertEquals((await store.runWatch(first, source)).newForWatch, 1);
-    assertEquals((await store.runWatch(second, source)).newForWatch, 1);
-  } finally {
-    await kv.close();
-  }
-});
+    const fakeResult: SpikeResult = {
+      search: {
+        year: "2015",
+        makeModel: "Honda Accord",
+        part: "Alternator",
+        sort: "price",
+      },
+      results: {
+        count: 1,
+        hasNextPage: false,
+        pagesFetched: 1,
+        listings: [{
+          year: "2015",
+          makeModel: "Honda Accord",
+          part: "Alternator",
+          sellerUserId: "test-seller-1",
+          stockNumber: "STK-999",
+          price: { amount: 150, currency: "USD", display: "$150" },
+          recycler: { name: "Test Yard" },
+        }],
+      },
+    };
 
-Deno.test("failed source search records a failed run without listing writes", async () => {
-  const { kv, store } = await freshStore();
-  try {
-    const watch = await store.createWatch(request);
-    const failure = Object.assign(new Error("challenge"), {
-      code: "ACCESS_CHALLENGE",
-    });
-    await store.runWatch(watch, new FakeSource(() => Promise.reject(failure)))
-      .catch(() => undefined);
-    const runs = [];
-    for await (
-      const entry of kv.list<{ status: string }>({ prefix: ["search_runs"] })
-    ) runs.push(entry.value);
-    assertEquals(runs.length, 1);
-    assertEquals(runs[0].status, "failed");
-    assertEquals(
-      await store.getListing((await sourceKey(listing))!),
-      undefined,
-    );
-  } finally {
-    await kv.close();
-  }
-});
+    try {
+      // First run (baseline)
+      const summary1 = await executeWatch(testWatch.id, {
+        runType: "manual",
+        searchRunner: () => Promise.resolve(fakeResult),
+      });
+
+      assertExists(summary1);
+      assertEquals(summary1.status, "succeeded");
+      assertEquals(summary1.newListingCount, 1);
+      assertEquals(summary1.changedCount, 0);
+      assertEquals(summary1.listingCount, 1);
+
+      // Repeat run with same data
+      const summary2 = await executeWatch(testWatch.id, {
+        runType: "manual",
+        searchRunner: () => Promise.resolve(fakeResult),
+      });
+
+      assertExists(summary2);
+      assertEquals(summary2.status, "succeeded");
+      assertEquals(summary2.newListingCount, 0); // Not new anymore!
+      assertEquals(summary2.changedCount, 0);
+
+      // Repeat run with modified price
+      const modifiedResult: SpikeResult = {
+        ...fakeResult,
+        results: {
+          ...fakeResult.results,
+          listings: [{
+            ...fakeResult.results.listings[0],
+            price: { amount: 175, currency: "USD", display: "$175" },
+          }],
+        },
+      };
+
+      const summary3 = await executeWatch(testWatch.id, {
+        runType: "manual",
+        searchRunner: () => Promise.resolve(modifiedResult),
+      });
+
+      assertExists(summary3);
+      assertEquals(summary3.status, "succeeded");
+      assertEquals(summary3.newListingCount, 0);
+      assertEquals(summary3.changedCount, 1); // Detected price update!
+    } finally {
+      const sql = getDatabase();
+      await sql`delete from notification_events where watch_id=${testWatch.id}`;
+      await sql`delete from search_runs where watch_id=${testWatch.id}`;
+      await sql`delete from watch_listings where watch_id=${testWatch.id}`;
+      await sql`delete from watches where id=${testWatch.id}`;
+    }
+  });
+}

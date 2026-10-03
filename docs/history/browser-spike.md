@@ -1,6 +1,11 @@
 # Car-Part browser-search spike
 
-## Current architecture
+> [!WARNING]
+> **Historical Record (Superseded)**: This document details the completed
+> browser spike and the retired browser-worker + Deno KV architecture. The
+> active production architecture uses Browserless CDP and PostgreSQL.
+
+## Historical architecture (retired)
 
 The completed runtime decision is now implemented as a private browser-worker
 boundary. The Deno Deploy application owns API/persistence and invokes the

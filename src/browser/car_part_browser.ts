@@ -1,9 +1,4 @@
-import {
-  type Browser,
-  type BrowserContext,
-  chromium,
-  type Page,
-} from "npm:playwright@1.58.2";
+import type { BrowserContext, Page } from "npm:playwright-core@1.58.2";
 import { parseRefinementChoices } from "../parsers/refinement.ts";
 import {
   hasNextResultsPage,
@@ -31,92 +26,6 @@ export interface BrowserSession {
 export interface BrowserProvider {
   createSession(): Promise<BrowserSession>;
 }
-
-export type BrowserMode =
-  | "chrome-headed"
-  | "chrome-headless"
-  | "chromium-new-headless"
-  | "chromium-headless-shell";
-
-const browserModeConfig: Record<
-  BrowserMode,
-  { channel?: "chrome" | "chromium"; headless: boolean; distribution: string }
-> = {
-  "chrome-headed": {
-    channel: "chrome",
-    headless: false,
-    distribution: "Google Chrome",
-  },
-  "chrome-headless": {
-    channel: "chrome",
-    headless: true,
-    distribution: "Google Chrome",
-  },
-  "chromium-new-headless": {
-    channel: "chromium",
-    headless: true,
-    distribution: "Chromium",
-  },
-  "chromium-headless-shell": {
-    headless: true,
-    distribution: "Chromium headless shell",
-  },
-};
-
-export class ChromeBrowserProvider implements BrowserProvider {
-  constructor(
-    private readonly mode: BrowserMode =
-      Deno.env.get("PLAYWRIGHT_HEADLESS") === "true"
-        ? "chrome-headless"
-        : "chrome-headed",
-  ) {}
-
-  async createSession(): Promise<BrowserSession> {
-    const config = browserModeConfig[this.mode];
-    const headlessShellPath = this.mode === "chromium-headless-shell"
-      ? Deno.env.get("PLAYWRIGHT_HEADLESS_SHELL_PATH")
-      : undefined;
-    const startedAt = performance.now();
-    let browser: Browser;
-    try {
-      browser = await chromium.launch({
-        headless: config.headless,
-        channel: config.channel,
-        executablePath: headlessShellPath,
-        timeout: 20_000,
-      });
-    } catch (cause) {
-      throw new SpikeError(
-        "BROWSER_LAUNCH_FAILED",
-        "Playwright could not launch Chromium",
-        { cause: String(cause) },
-      );
-    }
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 900 },
-    });
-    context.setDefaultTimeout(20_000);
-    context.setDefaultNavigationTimeout(25_000);
-    return {
-      context,
-      timings: { sessionCreateMs: Math.round(performance.now() - startedAt) },
-      runtimeInfo: {
-        distribution: config.distribution,
-        renderingMode: config.headless ? "headless" : "headed",
-        browserVersion: browser.version(),
-        executableSelection: headlessShellPath ?? config.channel ??
-          "Playwright headless shell",
-        os: Deno.build.os,
-        viewport: { width: 1280, height: 900 },
-        display: Boolean(Deno.env.get("DISPLAY")),
-      },
-      close: () => browser.close(),
-    };
-  }
-}
-
-/** @deprecated Use ChromeBrowserProvider. Kept while the temporary endpoint uses this name. */
-export const LocalBrowserProvider = ChromeBrowserProvider;
 
 const homeUrl = "https://www.car-part.com/";
 const representativeSearch: CarPartSearchRequest = {

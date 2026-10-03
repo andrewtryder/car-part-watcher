@@ -22,9 +22,22 @@ import {
   saveWatch,
   validateWatch,
 } from "./src/services/watch_service.ts";
+import { ListingIdentityCollisionError } from "./src/reconciliation.ts";
+import { SpikeError } from "./src/types.ts";
 import type { CarPartSearchRequest } from "./src/types.ts";
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });
+
+function parseLimitParam(
+  param: string | null,
+  defaultValue = 50,
+  max = 100,
+): number {
+  if (!param) return defaultValue;
+  const num = Number(param);
+  if (!Number.isFinite(num) || num < 1) return defaultValue;
+  return Math.min(Math.floor(num), max);
+}
 const assetTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -139,7 +152,7 @@ export async function handleConsoleRequest(req: Request) {
         await listInboxNotifications({
           unread: url.searchParams.get("status") !== "all",
           watchId: url.searchParams.get("watchId") ?? undefined,
-          limit: Number(url.searchParams.get("limit") ?? 50),
+          limit: parseLimitParam(url.searchParams.get("limit"), 50, 100),
           eventType: url.searchParams.get("type") ?? undefined,
         }),
       );
@@ -171,7 +184,9 @@ export async function handleConsoleRequest(req: Request) {
     }
     if (url.pathname === "/api/runs" && req.method === "GET") {
       return json(
-        await listRecentSearchRuns(Number(url.searchParams.get("limit") ?? 50)),
+        await listRecentSearchRuns(
+          parseLimitParam(url.searchParams.get("limit"), 50, 100),
+        ),
       );
     }
     if (url.pathname === "/api/watches/resolve" && req.method === "POST") {
@@ -188,7 +203,7 @@ export async function handleConsoleRequest(req: Request) {
     }
     const runId = url.pathname.match(/^\/api\/watches\/([\w-]+)\/run$/)?.[1];
     if (runId && req.method === "POST") {
-      const run = await executeWatch(runId);
+      const run = await executeWatch(runId, { maxRunTimeMs: 120_000 });
       return run
         ? json({
           ...run,
@@ -221,7 +236,7 @@ export async function handleConsoleRequest(req: Request) {
       return json(
         await listWatchListings(
           listingWatchId,
-          Number(url.searchParams.get("limit") ?? 50),
+          parseLimitParam(url.searchParams.get("limit"), 500, 1000),
         ),
       );
     }
@@ -250,9 +265,64 @@ export async function handleConsoleRequest(req: Request) {
     }
     return await consoleAsset(url.pathname);
   } catch (error) {
+    let status = 500;
+    let message = "Request failed";
+    let code: string | undefined;
+
+    if (error instanceof ListingIdentityCollisionError) {
+      status = 409;
+      message = error.message;
+      code = error.code;
+    } else if (error instanceof SpikeError) {
+      code = error.code;
+      message = error.message;
+      switch (error.code) {
+        case "RUN_TIMEOUT":
+        case "REMOTE_BROWSER_TIMEOUT":
+          status = 504;
+          break;
+        case "ACCESS_CHALLENGE":
+          status = 503;
+          break;
+        case "REMOTE_BROWSER_CREATE_FAILED":
+        case "REMOTE_CDP_CONNECTION_FAILED":
+        case "REMOTE_BROWSER_DISCONNECTED":
+        case "PAGE_LOAD_FAILED":
+        case "FORM_SUBMIT_FAILED":
+        case "CDP_CONNECTION_FAILED":
+          status = 502;
+          break;
+        case "REFINEMENT_REQUIRED":
+        case "SEARCH_OPTION_NOT_FOUND":
+        case "REFINEMENT_OPTION_NOT_FOUND":
+          status = 400;
+          break;
+        default:
+          status = 502;
+      }
+    } else if (error instanceof Error) {
+      message = error.message;
+      if (message === "Watch not found" || message === "Not found") {
+        status = 404;
+      } else if (
+        message.includes("is required") ||
+        message.includes("Watch criteria are not present") ||
+        message.includes("Postal code is required") ||
+        message.includes("Catalog is not initialized")
+      ) {
+        status = 400;
+      } else if (
+        "status" in error &&
+        typeof (error as { status: unknown }).status === "number"
+      ) {
+        status = (error as { status: number }).status;
+      }
+    }
+
     return json({
-      error: error instanceof Error ? error.message : "Request failed",
-    }, 400);
+      error: message,
+      ...(code ? { code } : {}),
+    }, status);
   }
 }
 

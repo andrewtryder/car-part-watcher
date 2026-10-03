@@ -27,6 +27,7 @@ import {
   processNotificationOutbox,
 } from "./notification_service.ts";
 import type { ListingFieldChange } from "../listing_normalizer.ts";
+import { executeSearchWithRetry } from "./search_retry.ts";
 
 export interface WatchRunSummary {
   runId: string;
@@ -38,8 +39,6 @@ export interface WatchRunSummary {
   durationMs: number;
   newListings: NormalizedListing[];
 }
-
-import { executeSearchWithRetry } from "./search_retry.ts";
 
 function safeError(error: unknown) {
   if (error instanceof SpikeError) {
