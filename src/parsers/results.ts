@@ -199,15 +199,15 @@ export function parseResults(html: string): CarPartListing[] {
       ])
       : columns;
     if (!fallback) return [];
-    const vehicle = parseVehicle(
-      cells[fallback.get("vehicle")!]?.innerHTML?.replace(
-        /<br\s*\/?\s*>/gi,
-        "\n",
-      ).replace(
-        /<[^>]*>/g,
-        "",
-      ),
-    );
+    const vehicleCell = cells[fallback.get("vehicle")!];
+    const vehicleText = vehicleCell
+      ? Array.from(vehicleCell.childNodes)
+        .map((node: Node) =>
+          node.nodeName === "BR" ? "\n" : (node.textContent ?? "")
+        )
+        .join("")
+      : undefined;
+    const vehicle = parseVehicle(vehicleText);
     if (cells.length < 6 || !/^\d{4}$/.test(vehicle.year ?? "")) return [];
     const descriptionCell = cells[fallback.get("description")!];
     const recyclerCell = cells[fallback.get("recycler")!];
