@@ -27,6 +27,7 @@ export interface NotificationEventV1 {
     grade?: string;
     damageCode?: string;
     imageUrl?: string;
+    listingUrl?: string;
     photoUrl?: string;
     quoteUrl?: string;
   };
@@ -79,6 +80,9 @@ export function buildNotificationEventV1(params: {
       grade: rawListing.grade,
       damageCode: rawListing.damageCode,
       imageUrl: rawListing.imageUrl,
+      // Car-Part's source-provided part-specific photo/detail link is the
+      // closest canonical listing URL available without inventing one.
+      listingUrl: rawListing.photoUrl,
       photoUrl: rawListing.photoUrl,
       quoteUrl: rawListing.quoteUrl,
     },
@@ -181,6 +185,7 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
       grade: typeof listing.grade === "string" ? listing.grade : undefined,
       damageCode: typeof listing.damageCode === "string" ? listing.damageCode : undefined,
       imageUrl: typeof listing.imageUrl === "string" ? listing.imageUrl : undefined,
+      listingUrl: typeof listing.listingUrl === "string" ? listing.listingUrl : undefined,
       photoUrl: typeof listing.photoUrl === "string" ? listing.photoUrl : undefined,
       quoteUrl: typeof listing.quoteUrl === "string" ? listing.quoteUrl : undefined,
     },
