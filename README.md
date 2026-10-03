@@ -8,7 +8,9 @@
 
 ## What it does
 
-Car Part Watcher runs saved vehicle-part searches against Car-Part, normalizes and reconciles the returned inventory, tracks new and changed listings, and surfaces run history and notification activity in a React operations console.
+Car Part Watcher runs saved vehicle-part searches against Car-Part, normalizes
+and reconciles the returned inventory, tracks new and changed listings, and
+surfaces run history and notification activity in a React operations console.
 
 - Saved searches with manual and scheduled execution
 - Browserless-powered Car-Part search automation
@@ -25,15 +27,24 @@ deno task serve
 
 The Vite development server proxies `/api` to the local Deno application.
 
-Useful checks:
+Useful verification commands:
 
 ```sh
-deno task test
-deno task build
+deno task ci       # Run the canonical quality gate (fmt, lint, type check, tests, build)
+deno task verify   # Alias for deno task ci
+deno task test     # Run unit tests
+deno task fmt      # Format codebase
+deno task lint     # Lint codebase
 ```
+
+For guidelines on repository hygiene, Conventional Commits, local Git hooks, and
+releases, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Deployment
 
-The application is configured for Deno Deploy in `deno.json`. Production builds run the web build and the source-controlled database migration step before routing the new revision.
+The application is configured for Deno Deploy in `deno.json`. Production builds
+execute the canonical verification gate (`deno task ci`) and the
+source-controlled database migration step (`deno task migrate`) before deploying
+the new revision.
 
 More implementation detail is available in the `docs/` directory.

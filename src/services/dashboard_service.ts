@@ -2,7 +2,12 @@ import { getCatalog } from "../repositories/catalog_repository.ts";
 import { getDatabase } from "../db/database.ts";
 import { appTimezone } from "./scheduling_service.ts";
 
-const asIso = (value: Date | null | undefined) => value?.toISOString();
+const asIso = (value: Date | string | null | undefined) =>
+  value
+    ? (value instanceof Date
+      ? value.toISOString()
+      : new Date(value).toISOString())
+    : undefined;
 
 export async function getDashboard() {
   const sql = getDatabase();
@@ -12,19 +17,27 @@ export async function getDashboard() {
     sql`select count(*) filter (where enabled)::int as active_watch_count, count(*) filter (where not enabled)::int as disabled_watch_count, (select count(*)::int from notification_events where event_type='new_listing' and read_at is null) as new_part_count, (select count(*)::int from notification_events where status='pending') as pending_notification_count, (select count(*)::int from notification_events where status='failed') as failed_notification_count, (select max(started_at) from search_runs) as last_run_at, (select status from search_runs order by started_at desc limit 1) as last_run_status from watches`,
     getCatalog(),
   ]);
-  const mapRun = (row: any) =>
+  const mapRun = (row: Record<string, unknown> | undefined | null) =>
     row && ({
-      id: row.run_id ?? row.id,
-      status: row.run_status ?? row.status,
-      runType: row.run_type,
-      startedAt: asIso(row.started_at),
-      completedAt: asIso(row.completed_at),
-      listingCount: row.listing_count ?? undefined,
-      newListingCount: row.new_listing_count ?? undefined,
-      changedCount: row.changed_count ?? undefined,
-      pagesFetched: row.pages_fetched ?? undefined,
-      errorCode: row.error_code ?? undefined,
-      errorMessage: row.error_message ?? undefined,
+      id: (row.run_id ?? row.id) as string,
+      status: (row.run_status ?? row.status) as string,
+      runType: row.run_type as string | undefined,
+      startedAt: asIso(row.started_at as Date | string),
+      completedAt: asIso(row.completed_at as Date | string),
+      listingCount: typeof row.listing_count === "number"
+        ? row.listing_count
+        : undefined,
+      newListingCount: typeof row.new_listing_count === "number"
+        ? row.new_listing_count
+        : undefined,
+      changedCount: typeof row.changed_count === "number"
+        ? row.changed_count
+        : undefined,
+      pagesFetched: typeof row.pages_fetched === "number"
+        ? row.pages_fetched
+        : undefined,
+      errorCode: (row.error_code as string) ?? undefined,
+      errorMessage: (row.error_message as string) ?? undefined,
     });
   const summary = counts[0];
   return {
@@ -45,24 +58,29 @@ export async function getDashboard() {
         makeModelCount: catalog.payload.makeModels.length,
         partCount: catalog.payload.parts.length,
       },
-    watches: watches.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      enabled: row.enabled,
+    watches: (watches as unknown as Record<string, unknown>[]).map((row) => ({
+      id: row.id as string,
+      name: row.name as string,
+      enabled: Boolean(row.enabled),
       criteria: {
-        year: row.year,
-        makeModel: row.make_model,
-        part: row.part,
-        location: row.location ?? undefined,
-        refinementLabel: row.refinement_label ?? undefined,
+        year: row.year as string,
+        makeModel: row.make_model as string,
+        part: row.part as string,
+        location: (row.location as string) ?? undefined,
+        refinementLabel: (row.refinement_label as string) ?? undefined,
       },
-      schedule: { enabled: row.schedule_enabled, frequency: row.run_frequency },
+      schedule: {
+        enabled: Boolean(row.schedule_enabled),
+        frequency: row.run_frequency as number,
+      },
       lastRun: row.run_id ? mapRun(row) : undefined,
     })),
-    recentRuns: recentRuns.map((row: any) => ({
+    recentRuns: (recentRuns as unknown as Record<string, unknown>[]).map((
+      row,
+    ) => ({
       ...mapRun(row),
-      watchId: row.watch_id,
-      watchName: row.watch_name,
+      watchId: row.watch_id as string,
+      watchName: row.watch_name as string,
     })),
   };
 }

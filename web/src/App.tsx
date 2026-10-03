@@ -177,6 +177,7 @@ export function DashboardPage() {
         </div>
         <div className="headerActions">
           <button
+            type="button"
             onClick={runAllDue}
             disabled={runningAll || !data?.watches?.length}
           >
@@ -190,7 +191,7 @@ export function DashboardPage() {
           <section className="state">
             <h2>Could not load dashboard</h2>
             <p>{error}</p>
-            <button onClick={load}>Retry</button>
+            <button type="button" onClick={load}>Retry</button>
           </section>
         )
         : !data
@@ -253,7 +254,9 @@ export function DashboardPage() {
                         <div>
                           <h3>{watch.name}</h3>
                           <p className="muted">
-                            {watch.criteria.year} {watch.criteria.makeModel} · {watch.criteria.part}
+                            {watch.criteria.year} {watch.criteria.makeModel} ·
+                            {" "}
+                            {watch.criteria.part}
                             {watch.criteria.refinementLabel
                               ? ` · ${watch.criteria.refinementLabel}`
                               : ""}
@@ -263,7 +266,11 @@ export function DashboardPage() {
                               {watch.enabled ? "Enabled" : "Disabled"}
                             </Badge>
                             {watch.schedule.enabled
-                              ? <Badge tone="blue">{frequency(watch.schedule.frequency)}</Badge>
+                              ? (
+                                <Badge tone="blue">
+                                  {frequency(watch.schedule.frequency)}
+                                </Badge>
+                              )
                               : <Badge tone="slate">Not scheduled</Badge>}
                           </div>
                         </div>
@@ -275,16 +282,23 @@ export function DashboardPage() {
                               </span>
                             )
                             : <span className="listStatus">Idle</span>}
-                          <small>{time(watch.lastRun?.startedAt, data.timezone)}</small>
+                          <small>
+                            {time(watch.lastRun?.startedAt, data.timezone)}
+                          </small>
                           <div className="rowActions">
                             <button
+                              type="button"
                               className="linkButton"
                               disabled={running === watch.id}
-                              onClick={() => execute(watch.id)}
+                              onClick={() =>
+                                execute(watch.id)}
                             >
                               {running === watch.id ? "Running…" : "Run"}
                             </button>
-                            <Link className="accentLink" to={`/watches/${watch.id}`}>
+                            <Link
+                              className="accentLink"
+                              to={`/watches/${watch.id}`}
+                            >
                               Open
                             </Link>
                           </div>
@@ -299,6 +313,7 @@ export function DashboardPage() {
               <div className="sectionHead">
                 <h2>Recent activity</h2>
                 <button
+                  type="button"
                   className="linkButton"
                   disabled={refreshing}
                   onClick={refresh}
@@ -313,7 +328,10 @@ export function DashboardPage() {
                       <article className="listRow activityRow" key={run.id}>
                         <div>
                           <p className="activityTitle">
-                            <Link to={`/watches/${run.watchId}`} className="accentLink">
+                            <Link
+                              to={`/watches/${run.watchId}`}
+                              className="accentLink"
+                            >
                               {run.watchName}
                             </Link>{" "}
                             {run.newListingCount
@@ -323,8 +341,9 @@ export function DashboardPage() {
                               : "finished with no changes"}
                           </p>
                           <p className="muted">
-                            {run.runType === "scheduled" ? "Scheduled" : "Manual"} ·{" "}
-                            {duration(run)}
+                            {run.runType === "scheduled"
+                              ? "Scheduled"
+                              : "Manual"} · {duration(run)}
                           </p>
                         </div>
                         <small>{time(run.startedAt, data.timezone)}</small>
@@ -333,14 +352,18 @@ export function DashboardPage() {
                     {data.catalog && (
                       <article className="listRow activityRow">
                         <div>
-                          <p className="activityTitle">Catalog refresh completed</p>
+                          <p className="activityTitle">
+                            Catalog refresh completed
+                          </p>
                           <p className="muted">
                             {data.catalog.yearCount} years ·{" "}
-                            {data.catalog.makeModelCount.toLocaleString()} makes/models ·{" "}
-                            {data.catalog.partCount} parts
+                            {data.catalog.makeModelCount.toLocaleString()}{" "}
+                            makes/models · {data.catalog.partCount} parts
                           </p>
                         </div>
-                        <small>{time(data.catalog.fetchedAt, data.timezone)}</small>
+                        <small>
+                          {time(data.catalog.fetchedAt, data.timezone)}
+                        </small>
                       </article>
                     )}
                   </div>
@@ -399,7 +422,10 @@ function ConsoleNav() {
           <Link className={active("/watches") ? "active" : ""} to="/watches">
             <Search size={18} /> Saved searches
           </Link>
-          <Link className={active("/new-parts") ? "active" : ""} to="/new-parts">
+          <Link
+            className={active("/new-parts") ? "active" : ""}
+            to="/new-parts"
+          >
             <Bell size={18} /> New parts <em>{unread ?? "0"}</em>
           </Link>
           <Link className={active("/runs") ? "active" : ""} to="/runs">

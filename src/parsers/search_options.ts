@@ -1,9 +1,9 @@
 import type { SearchOptions, SelectOption } from "../types.ts";
 import { parseHTML } from "npm:linkedom@0.18.12";
 
-function options(document: any, selector: string): SelectOption[] {
+function options(document: Document, selector: string): SelectOption[] {
   return [...document.querySelectorAll(selector)]
-    .flatMap((select) => [...select.options])
+    .flatMap((select) => [...(select as unknown as HTMLSelectElement).options])
     .map((option) => ({
       label: option.textContent?.trim() ?? "",
       value: option.value,
@@ -14,7 +14,7 @@ function options(document: any, selector: string): SelectOption[] {
 }
 
 export function parseSearchOptions(html: string): SearchOptions {
-  const document = (parseHTML(html) as unknown as { document: any }).document;
+  const document = parseHTML(html).document as unknown as Document;
   return {
     years: options(document, "select[name='userDate']"),
     makeModels: options(document, "select[name='userModel']"),

@@ -56,7 +56,9 @@ export async function executeSearchWithRetry(
     if (remainingTime <= 0) {
       throw new SpikeError(
         "RUN_TIMEOUT",
-        `Search run exceeded the ${Math.round(maxRunTimeMs / 60000)}-minute maximum limit`,
+        `Search run exceeded the ${
+          Math.round(maxRunTimeMs / 60000)
+        }-minute maximum limit`,
       );
     }
 
@@ -64,7 +66,9 @@ export async function executeSearchWithRetry(
       result = await withTimeout(
         search(watch),
         remainingTime,
-        `Search run exceeded the ${Math.round(maxRunTimeMs / 60000)}-minute maximum limit`,
+        `Search run exceeded the ${
+          Math.round(maxRunTimeMs / 60000)
+        }-minute maximum limit`,
       );
       break;
     } catch (err) {

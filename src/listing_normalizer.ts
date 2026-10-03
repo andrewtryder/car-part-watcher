@@ -1,5 +1,11 @@
-import { identityForListing, sourceKey, type IdentityMethod } from "./identity.ts";
+import {
+  identityForListing,
+  type IdentityMethod,
+  sourceKey,
+} from "./identity.ts";
 import type { CarPartListing } from "./types.ts";
+
+export type { IdentityMethod };
 
 export interface NormalizedListing {
   source: "car-part";
@@ -28,11 +34,14 @@ export interface NormalizedListing {
   raw: CarPartListing;
 }
 
-const clean = (value: string | undefined) => value?.trim().replace(/\s+/g, " ") || undefined;
+const clean = (value: string | undefined) =>
+  value?.trim().replace(/\s+/g, " ") || undefined;
 const identifier = (value: string | undefined) => clean(value)?.toLowerCase();
 
 /** Converts only parser-exposed fields into durable, comparison-safe data. */
-export async function normalizeListing(raw: CarPartListing): Promise<NormalizedListing | undefined> {
+export async function normalizeListing(
+  raw: CarPartListing,
+): Promise<NormalizedListing | undefined> {
   const identity = identityForListing(raw);
   const key = await sourceKey(raw);
   if (!identity || !key) return undefined;
@@ -41,14 +50,30 @@ export async function normalizeListing(raw: CarPartListing): Promise<NormalizedL
     return Number.isFinite(parsed) ? parsed : undefined;
   })();
   return {
-    source: "car-part", sourceKey: key, identityMethod: identity.method,
-    sellerUserId: identifier(raw.sellerUserId), partSourceId: identifier(raw.partSourceId),
-    partGuid: identifier(raw.partGuid), vehicleGuid: identifier(raw.vehicleGuid),
-    stockNumber: clean(raw.stockNumber), year: clean(raw.year), makeModel: clean(raw.makeModel),
-    part: clean(raw.part), description: clean(raw.description), damageCode: clean(raw.damageCode), grade: clean(raw.grade),
-    priceAmount, priceCurrency: clean(raw.price?.currency), priceDisplay: clean(raw.price?.display),
-    recyclerName: clean(raw.recycler?.name), recyclerLocation: clean(raw.recycler?.location),
-    recyclerPhone: clean(raw.recycler?.phone), imageUrl: clean(raw.imageUrl), photoUrl: clean(raw.photoUrl), quoteUrl: clean(raw.quoteUrl), raw,
+    source: "car-part",
+    sourceKey: key,
+    identityMethod: identity.method,
+    sellerUserId: identifier(raw.sellerUserId),
+    partSourceId: identifier(raw.partSourceId),
+    partGuid: identifier(raw.partGuid),
+    vehicleGuid: identifier(raw.vehicleGuid),
+    stockNumber: clean(raw.stockNumber),
+    year: clean(raw.year),
+    makeModel: clean(raw.makeModel),
+    part: clean(raw.part),
+    description: clean(raw.description),
+    damageCode: clean(raw.damageCode),
+    grade: clean(raw.grade),
+    priceAmount,
+    priceCurrency: clean(raw.price?.currency),
+    priceDisplay: clean(raw.price?.display),
+    recyclerName: clean(raw.recycler?.name),
+    recyclerLocation: clean(raw.recycler?.location),
+    recyclerPhone: clean(raw.recycler?.phone),
+    imageUrl: clean(raw.imageUrl),
+    photoUrl: clean(raw.photoUrl),
+    quoteUrl: clean(raw.quoteUrl),
+    raw,
   };
 }
 
@@ -59,9 +84,10 @@ export interface ListingFieldChange {
 }
 
 export function detailedMutableChanges(
-  previous: Record<string, any>,
+  previous: Record<string, unknown> | NormalizedListing,
   next: NormalizedListing,
 ): ListingFieldChange[] {
+  const prev = previous as Record<string, unknown>;
   const fields: { key: keyof NormalizedListing; rowKey: string }[] = [
     { key: "priceDisplay", rowKey: "price_display" },
     { key: "priceAmount", rowKey: "price_amount" },
@@ -79,27 +105,44 @@ export function detailedMutableChanges(
 
   const changes: ListingFieldChange[] = [];
   for (const { key, rowKey } of fields) {
-    const rawOld = previous[key] !== undefined ? previous[key] : previous[rowKey];
-    const oldVal = (key === "priceAmount" && rawOld !== undefined && rawOld !== null)
-      ? Number(rawOld)
-      : (rawOld ?? undefined);
+    const rawOld = prev[key] !== undefined ? prev[key] : prev[rowKey];
+    const oldVal =
+      (key === "priceAmount" && rawOld !== undefined && rawOld !== null)
+        ? Number(rawOld)
+        : (rawOld ?? undefined);
     const newVal = next[key] ?? undefined;
     if (oldVal !== newVal) {
       changes.push({
         field: key,
-        oldValue: oldVal !== undefined && oldVal !== null ? String(oldVal) : undefined,
-        newValue: newVal !== undefined && newVal !== null ? String(newVal) : undefined,
+        oldValue: oldVal !== undefined && oldVal !== null
+          ? String(oldVal)
+          : undefined,
+        newValue: newVal !== undefined && newVal !== null
+          ? String(newVal)
+          : undefined,
       });
     }
   }
   return changes;
 }
 
-export function mutableChanges(previous: NormalizedListing, next: NormalizedListing): string[] {
+export function mutableChanges(
+  previous: NormalizedListing,
+  next: NormalizedListing,
+): string[] {
   const fields: (keyof NormalizedListing)[] = [
-    "description", "damageCode", "grade", "priceAmount", "priceCurrency", "priceDisplay",
-    "recyclerName", "recyclerLocation", "recyclerPhone", "imageUrl", "photoUrl", "quoteUrl",
+    "description",
+    "damageCode",
+    "grade",
+    "priceAmount",
+    "priceCurrency",
+    "priceDisplay",
+    "recyclerName",
+    "recyclerLocation",
+    "recyclerPhone",
+    "imageUrl",
+    "photoUrl",
+    "quoteUrl",
   ];
   return fields.filter((field) => previous[field] !== next[field]).map(String);
 }
-

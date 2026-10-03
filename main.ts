@@ -34,26 +34,26 @@ const assetTypes: Record<string, string> = {
   ".png": "image/png",
   ".json": "application/json; charset=utf-8",
 };
-function request(value: any): CarPartSearchRequest {
+function request(value: Record<string, unknown>): CarPartSearchRequest {
   return {
-    year: value.year,
-    makeModel: value.makeModel,
-    part: value.part,
-    location: value.location || undefined,
-    sort: value.sort,
-    postalCode: value.postalCode || undefined,
+    year: String(value.year ?? ""),
+    makeModel: String(value.makeModel ?? ""),
+    part: String(value.part ?? ""),
+    location: (value.location as string) || undefined,
+    sort: (value.sort as CarPartSearchRequest["sort"]) ?? "price",
+    postalCode: (value.postalCode as string) || undefined,
     refinement: value.refinementLabel
-      ? { label: value.refinementLabel }
+      ? { label: String(value.refinementLabel) }
       : undefined,
   };
 }
 function watchDraft(
-  body: any,
+  body: Record<string, unknown>,
   existing?: { id: string; createdAt: string; updatedAt: string },
 ) {
   return {
     ...request(body),
-    name: body.name ?? "",
+    name: (body.name as string) ?? "",
     enabled: body.enabled !== false,
     scheduleEnabled: body.scheduleEnabled === true,
     runFrequency: [1, 2, 3].includes(Number(body.runFrequency))
@@ -175,10 +175,14 @@ export async function handleConsoleRequest(req: Request) {
       );
     }
     if (url.pathname === "/api/watches/resolve" && req.method === "POST") {
-      return json(await resolveWatch(request(await req.json())));
+      return json(
+        await resolveWatch(
+          request((await req.json()) as Record<string, unknown>),
+        ),
+      );
     }
     if (url.pathname === "/api/watches" && req.method === "POST") {
-      const draft = watchDraft(await req.json());
+      const draft = watchDraft((await req.json()) as Record<string, unknown>);
       await validateWatch(draft);
       return json(await saveWatch(draft), 201);
     }
@@ -229,7 +233,10 @@ export async function handleConsoleRequest(req: Request) {
     if (id && req.method === "PUT") {
       const existing = await getWatch(id);
       if (!existing) return json({ error: "Not found" }, 404);
-      const draft = watchDraft(await req.json(), existing);
+      const draft = watchDraft(
+        (await req.json()) as Record<string, unknown>,
+        existing,
+      );
       await validateWatch(draft);
       return json(await saveWatch(draft));
     }
@@ -249,7 +256,9 @@ export async function handleConsoleRequest(req: Request) {
   }
 }
 
-Deno.serve((req) => withConsoleAuthentication(
-  req,
-  () => handleConsoleRequest(req),
-));
+Deno.serve((req) =>
+  withConsoleAuthentication(
+    req,
+    () => handleConsoleRequest(req),
+  )
+);

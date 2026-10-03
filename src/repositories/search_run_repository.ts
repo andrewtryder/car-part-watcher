@@ -15,7 +15,23 @@ export interface SearchRun {
   errorCode?: string;
   errorMessage?: string;
 }
-export const mapSearchRun = (row: any): SearchRun => ({
+interface SearchRunRow {
+  id: string;
+  watch_id: string;
+  run_type?: "manual" | "scheduled" | null;
+  status: "running" | "succeeded" | "failed";
+  started_at: Date;
+  completed_at?: Date | null;
+  listing_count?: number | null;
+  new_listing_count?: number | null;
+  changed_count?: number | null;
+  pages_fetched?: number | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  watch_name?: string;
+}
+
+export const mapSearchRun = (row: SearchRunRow): SearchRun => ({
   id: row.id,
   watchId: row.watch_id,
   runType: row.run_type ?? undefined,
@@ -80,8 +96,9 @@ export async function recoverStaleRuns(maxAgeMinutes = 10) {
 }
 export async function listSearchRuns(watchId: string) {
   await recoverStaleRuns();
-  return (await getDatabase()`select * from search_runs where watch_id=${watchId} order by started_at desc limit 25`)
-    .map(mapSearchRun);
+  const rows =
+    await getDatabase()`select * from search_runs where watch_id=${watchId} order by started_at desc limit 25`;
+  return rows.map((r) => mapSearchRun(r as unknown as SearchRunRow));
 }
 export async function listRecentSearchRuns(limit = 50) {
   await recoverStaleRuns();
@@ -89,11 +106,14 @@ export async function listRecentSearchRuns(limit = 50) {
     await getDatabase()`select r.*, w.name as watch_name from search_runs r join watches w on w.id=r.watch_id order by r.started_at desc limit ${
       Math.min(Math.max(limit, 1), 100)
     }`;
-  return rows.map((row: any) => ({
-    ...mapSearchRun(row),
-    watchName: row.watch_name,
-    runType: row.run_type,
-  }));
+  return rows.map((row) => {
+    const r = row as unknown as SearchRunRow;
+    return {
+      ...mapSearchRun(r),
+      watchName: r.watch_name,
+      runType: r.run_type ?? undefined,
+    };
+  });
 }
 export async function hasPreviousSuccessfulRun(watchId: string) {
   return Boolean(

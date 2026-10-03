@@ -7,11 +7,11 @@ import {
 import {
   buildNotificationEventV1,
   LoggingNotifier,
+  type NotificationEventV1,
   NotificationPayloadValidationError,
+  type Notifier,
   parseNotificationEventV1,
   processNotificationOutbox,
-  type Notifier,
-  type NotificationEventV1,
 } from "../src/services/notification_service.ts";
 import {
   createNewListingEvent,
@@ -151,7 +151,9 @@ Deno.test("runtime validation accepts valid V1 and rejects malformed payloads", 
 });
 
 // Database-backed integration tests (active when env & net permissions are granted)
-const hasEnv = (await Deno.permissions.query({ name: "env", variable: "DATABASE_URL" })).state === "granted";
+const hasEnv =
+  (await Deno.permissions.query({ name: "env", variable: "DATABASE_URL" }))
+    .state === "granted";
 const databaseUrl = hasEnv ? Deno.env.get("DATABASE_URL") : undefined;
 
 if (databaseUrl) {
@@ -191,7 +193,8 @@ if (databaseUrl) {
       assertEquals(result.failed, 1);
 
       // Verify the event in DB is marked 'failed' with NOTIFICATION_PAYLOAD_INVALID
-      const rows = await sql`select status, last_error_code, processed_at from notification_events where id=${eventId}`;
+      const rows =
+        await sql`select status, last_error_code, processed_at from notification_events where id=${eventId}`;
       assertEquals(rows.length, 1);
       assertEquals(rows[0].status, "failed");
       assertEquals(rows[0].last_error_code, "NOTIFICATION_PAYLOAD_INVALID");
@@ -242,7 +245,8 @@ if (databaseUrl) {
       assertEquals(result.delivered, 0);
 
       // Verify event is retryable ('pending', attempts = 1, NOTIFIER_FAILED)
-      const rows = await sql`select status, attempts, last_error_code, processed_at from notification_events where id=${eventId}`;
+      const rows =
+        await sql`select status, attempts, last_error_code, processed_at from notification_events where id=${eventId}`;
       assertEquals(rows.length, 1);
       assertEquals(rows[0].status, "pending");
       assertEquals(rows[0].attempts, 1);
@@ -292,7 +296,8 @@ if (databaseUrl) {
         payload: event,
       });
 
-      const rows = await sql`select id from notification_events where search_run_id=${searchRunId} and listing_id=${listingId}`;
+      const rows =
+        await sql`select id from notification_events where search_run_id=${searchRunId} and listing_id=${listingId}`;
       assertEquals(rows.length, 1);
       assertEquals(rows[0].id, event.eventId);
     } finally {
@@ -325,7 +330,8 @@ if (databaseUrl) {
       });
       assertEquals(secondRun, undefined);
 
-      const rows = await sql`select id from search_runs where scheduled_key=${scheduledKey}`;
+      const rows =
+        await sql`select id from search_runs where scheduled_key=${scheduledKey}`;
       assertEquals(rows.length, 1);
     } finally {
       await sql`delete from search_runs where scheduled_key=${scheduledKey}`;

@@ -230,7 +230,11 @@ export function WatchList() {
                 </p>
 
                 <div className="badges">
-                  <span className={`badge ${item.scheduleEnabled ? "blue" : "slate"}`}>
+                  <span
+                    className={`badge ${
+                      item.scheduleEnabled ? "blue" : "slate"
+                    }`}
+                  >
                     {item.scheduleEnabled
                       ? frequencies[item.runFrequency]
                       : "Not scheduled"}
@@ -279,18 +283,21 @@ export function WatchList() {
                     Edit
                   </Link>
                   <button
+                    type="button"
                     disabled={running === item.id}
                     onClick={() => execute(item)}
                   >
                     {running === item.id ? "Running…" : "Run"}
                   </button>
                   <button
+                    type="button"
                     className="quiet"
                     onClick={() => update(item, { enabled: !item.enabled })}
                   >
                     {item.enabled ? "Disable" : "Enable"}
                   </button>
                   <button
+                    type="button"
                     className="danger"
                     onClick={() => remove(item)}
                   >
@@ -557,7 +564,10 @@ export function WatchForm() {
               </button>
             )
             : <button type="submit">Save saved search</button>}
-          <Link className="buttonLink quiet" to={id ? `/watches/${id}` : "/watches"}>
+          <Link
+            className="buttonLink quiet"
+            to={id ? `/watches/${id}` : "/watches"}
+          >
             Cancel
           </Link>
         </div>

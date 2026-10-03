@@ -1,12 +1,16 @@
-import { sourceKey, type IdentityMethod } from "./identity.ts";
+import { type IdentityMethod, sourceKey } from "./identity.ts";
 import type { CarPartListing } from "./types.ts";
 
 /** Diagnostic-only reconstruction of the shifted eight-column production parser. */
 export async function legacyProjection(listing: CarPartListing): Promise<{
-  listing: CarPartListing; sourceKey?: string; identityMethod?: IdentityMethod;
+  listing: CarPartListing;
+  sourceKey?: string;
+  identityMethod?: IdentityMethod;
 }> {
   const legacy: CarPartListing = {
-    year: listing.year, makeModel: listing.makeModel, part: listing.part,
+    year: listing.year,
+    makeModel: listing.makeModel,
+    part: listing.part,
     description: listing.description,
     grade: listing.damageCode,
     stockNumber: listing.grade,
@@ -18,5 +22,9 @@ export async function legacyProjection(listing: CarPartListing): Promise<{
     sellerUserId: undefined,
   };
   const key = await sourceKey(legacy);
-  return { listing: legacy, sourceKey: key, identityMethod: key ? "fallback_composite" : undefined };
+  return {
+    listing: legacy,
+    sourceKey: key,
+    identityMethod: key ? "fallback_composite" : undefined,
+  };
 }

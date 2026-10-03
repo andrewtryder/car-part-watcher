@@ -116,7 +116,9 @@ function SectionError({ retry }: { retry: () => void }) {
   return (
     <p className="notice error">
       Could not load this section.{" "}
-      <button className="quiet inlineButton" onClick={retry}>Retry</button>
+      <button type="button" className="quiet inlineButton" onClick={retry}>
+        Retry
+      </button>
     </p>
   );
 }
@@ -187,7 +189,9 @@ function Listings({
         case "vehicle": {
           const strA = [a.year, a.makeModel, a.part].filter(Boolean).join(" ");
           const strB = [b.year, b.makeModel, b.part].filter(Boolean).join(" ");
-          comparison = strA.localeCompare(strB, undefined, { sensitivity: "base" });
+          comparison = strA.localeCompare(strB, undefined, {
+            sensitivity: "base",
+          });
           break;
         }
         case "details": {
@@ -197,7 +201,9 @@ function Listings({
           const strB = [b.description, b.damageCode, b.grade, b.stockNumber]
             .filter(Boolean)
             .join(" ");
-          comparison = strA.localeCompare(strB, undefined, { sensitivity: "base" });
+          comparison = strA.localeCompare(strB, undefined, {
+            sensitivity: "base",
+          });
           break;
         }
         case "price": {
@@ -213,7 +219,9 @@ function Listings({
           const strB = [b.recyclerName, b.recyclerLocation]
             .filter(Boolean)
             .join(" ");
-          comparison = strA.localeCompare(strB, undefined, { sensitivity: "base" });
+          comparison = strA.localeCompare(strB, undefined, {
+            sensitivity: "base",
+          });
           break;
         }
         case "firstSeen": {
@@ -252,15 +260,13 @@ function Listings({
       >
         <span className="sortThContent">
           <span>{label}</span>
-          {isActive ? (
-            sortDirection === "asc" ? (
-              <ArrowUp size={14} className="sortIconActive" />
-            ) : (
-              <ArrowDown size={14} className="sortIconActive" />
+          {isActive
+            ? (
+              sortDirection === "asc"
+                ? <ArrowUp size={14} className="sortIconActive" />
+                : <ArrowDown size={14} className="sortIconActive" />
             )
-          ) : (
-            <ArrowUpDown size={14} className="sortIconInactive" />
-          )}
+            : <ArrowUpDown size={14} className="sortIconInactive" />}
         </span>
       </th>
     );
@@ -328,7 +334,8 @@ function Listings({
             </select>
           </label>
           <span className="muted">
-            Showing {sortedItems.length} {sortedItems.length === 1 ? "part" : "parts"}
+            Showing {sortedItems.length}{" "}
+            {sortedItems.length === 1 ? "part" : "parts"}
           </span>
         </div>
       </div>
@@ -345,7 +352,7 @@ function Listings({
           <section className="empty">
             <h3>No parts seen yet.</h3>
             <p>Run this saved search to establish its baseline.</p>
-            <button onClick={onRun}>Run now</button>
+            <button type="button" onClick={onRun}>Run now</button>
           </section>
         )
         : (
@@ -400,7 +407,9 @@ function Listings({
                       </td>
                       <td>
                         <strong>
-                          {[item.year, item.makeModel, item.part].filter(Boolean)
+                          {[item.year, item.makeModel, item.part].filter(
+                            Boolean,
+                          )
                             .join(" ") || "Part"}
                         </strong>
                         {item.isModified && (
@@ -428,68 +437,73 @@ function Listings({
                                 className="changeTag"
                                 title={`Was: ${ch.oldValue ?? "none"}`}
                               >
-                                {formatFieldLabel(ch.field)}: {ch.oldValue ?? "none"} → {ch.newValue ?? "none"}
+                                {formatFieldLabel(ch.field)}:{" "}
+                                {ch.oldValue ?? "none"} →{" "}
+                                {ch.newValue ?? "none"}
                               </span>
                             ))}
                           </div>
                         )}
                       </td>
                       <td>
-                        {priceChange ? (
-                          <div className="changeDiffText">
-                            <span className="oldPriceStrike">
-                              {priceChange.oldValue || "—"}
-                            </span>
-                            <span className="diffArrow">→</span>
-                            <span className="diffHighlight">
-                              {item.priceDisplay || "—"}
-                            </span>
-                          </div>
-                        ) : (
-                          <strong>{item.priceDisplay || "—"}</strong>
-                        )}
+                        {priceChange
+                          ? (
+                            <div className="changeDiffText">
+                              <span className="oldPriceStrike">
+                                {priceChange.oldValue || "—"}
+                              </span>
+                              <span className="diffArrow">→</span>
+                              <span className="diffHighlight">
+                                {item.priceDisplay || "—"}
+                              </span>
+                            </div>
+                          )
+                          : <strong>{item.priceDisplay || "—"}</strong>}
                       </td>
                       <td>
                         <div>{item.recyclerName || "—"}</div>
                         {item.recyclerLocation && (
-                          <small className="muted">{item.recyclerLocation}</small>
+                          <small className="muted">
+                            {item.recyclerLocation}
+                          </small>
                         )}
                       </td>
                       <td>{formatDate(item.firstSeenAt, timezone)}</td>
                       <td>{formatDate(item.lastSeenAt, timezone)}</td>
                       <td>
                         {item.photoUrl || item.quoteUrl
-                        ? (
-                          <div className="accentLinks">
-                            {item.photoUrl && (
-                              <a
-                                href={item.photoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="accentLink"
-                              >
-                                Photos
-                              </a>
-                            )}
-                            {item.photoUrl && item.quoteUrl && (
-                              <span className="separator">·</span>
-                            )}
-                            {item.quoteUrl && (
-                              <a
-                                href={item.quoteUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="accentLink"
-                              >
-                                Request Quote
-                              </a>
-                            )}
-                          </div>
-                        )
-                        : <span className="muted">—</span>}
-                    </td>
-                  </tr>
-                )})}
+                          ? (
+                            <div className="accentLinks">
+                              {item.photoUrl && (
+                                <a
+                                  href={item.photoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="accentLink"
+                                >
+                                  Photos
+                                </a>
+                              )}
+                              {item.photoUrl && item.quoteUrl && (
+                                <span className="separator">·</span>
+                              )}
+                              {item.quoteUrl && (
+                                <a
+                                  href={item.quoteUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="accentLink"
+                                >
+                                  Request Quote
+                                </a>
+                              )}
+                            </div>
+                          )
+                          : <span className="muted">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -530,7 +544,7 @@ function RunHistory({
           <section className="empty">
             <h3>No runs yet.</h3>
             <p>Run this saved search to start collecting results.</p>
-            <button onClick={onRun}>Run now</button>
+            <button type="button" onClick={onRun}>Run now</button>
           </section>
         )
         : (
@@ -750,7 +764,9 @@ export function WatchDetail() {
             <span className={`badge ${item.enabled ? "green" : "slate"}`}>
               {item.enabled ? "Enabled" : "Disabled"}
             </span>
-            <span className={`badge ${item.scheduleEnabled ? "blue" : "slate"}`}>
+            <span
+              className={`badge ${item.scheduleEnabled ? "blue" : "slate"}`}
+            >
               {item.scheduleEnabled ? "Scheduled" : "Unscheduled"}
             </span>
             {item.scheduleEnabled && (
@@ -761,7 +777,7 @@ export function WatchDetail() {
         </div>
 
         <div className="detailActions">
-          <button onClick={execute} disabled={running}>
+          <button type="button" onClick={execute} disabled={running}>
             {running ? "Running search…" : "Run now"}
           </button>
           <Link className="buttonLink quiet" to={`/watches/${item.id}/edit`}>
@@ -773,10 +789,12 @@ export function WatchDetail() {
           >
             View new parts
           </Link>
-          <button className="quiet" onClick={toggle}>
+          <button type="button" className="quiet" onClick={toggle}>
             {item.enabled ? "Disable" : "Enable"}
           </button>
-          <button className="danger" onClick={remove}>Delete</button>
+          <button type="button" className="danger" onClick={remove}>
+            Delete
+          </button>
         </div>
       </header>
 
