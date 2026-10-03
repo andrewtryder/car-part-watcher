@@ -22,10 +22,6 @@ try {
     }
     console.log(JSON.stringify(
       {
-        apiKeyPresent: Boolean(
-          Deno.env.get("BROWSERLESS_API_KEY") ??
-            Deno.env.get("BROWSERLESS_TOKEN"),
-        ),
         endpointHost: new URL(
           Deno.env.get("BROWSERLESS_ENDPOINT") ??
             "wss://production-sfo.browserless.io",
