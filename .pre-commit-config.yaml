@@ -1,0 +1,32 @@
+default_install_hook_types:
+  - pre-commit
+  - pre-push
+
+repos:
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+
+  - repo: local
+    hooks:
+      - id: deno-fmt
+        name: Deno Format Check
+        entry: deno task fmt:check
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: deno-lint
+        name: Deno Lint Check
+        entry: deno task lint
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: deno-ci
+        name: Deno Canonical Verification
+        entry: deno task ci
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

@@ -4,7 +4,11 @@ import {
   withConsoleAuthentication,
 } from "../src/console_auth.ts";
 
-const config = { enabled: true, username: "operator", password: "test-password" };
+const config = {
+  enabled: true,
+  username: "operator",
+  password: "test-password",
+};
 const request = (path: string, authorization?: string, method = "GET") =>
   new Request(`https://console.test${path}`, {
     method,
@@ -33,7 +37,10 @@ Deno.test("health is public while the root requires valid Basic credentials", as
     config,
   );
   assertEquals(anonymous.status, 401);
-  assertEquals(anonymous.headers.get("www-authenticate"), 'Basic realm="Car Part Watcher"');
+  assertEquals(
+    anonymous.headers.get("www-authenticate"),
+    'Basic realm="Car Part Watcher"',
+  );
 
   const authenticated = await withConsoleAuthentication(
     request("/", basic()),
@@ -50,17 +57,26 @@ Deno.test("administrative API and mutation requests stop before their handlers",
     calls++;
     return new Response("handler reached");
   };
-  for (const entry of [
-    request("/api/dashboard"),
-    request("/api/catalog/refresh", undefined, "POST"),
-    request("/api/watches/id/run", undefined, "POST"),
-    request("/api/notifications/mark-all-read", undefined, "POST"),
-  ]) {
-    assertEquals((await withConsoleAuthentication(entry, next, config)).status, 401);
+  for (
+    const entry of [
+      request("/api/dashboard"),
+      request("/api/catalog/refresh", undefined, "POST"),
+      request("/api/watches/id/run", undefined, "POST"),
+      request("/api/notifications/mark-all-read", undefined, "POST"),
+    ]
+  ) {
+    assertEquals(
+      (await withConsoleAuthentication(entry, next, config)).status,
+      401,
+    );
   }
   assertEquals(calls, 0);
   assertEquals(
-    (await withConsoleAuthentication(request("/api/dashboard", basic()), next, config)).status,
+    (await withConsoleAuthentication(
+      request("/api/dashboard", basic()),
+      next,
+      config,
+    )).status,
     200,
   );
   assertEquals(calls, 1);
@@ -71,7 +87,15 @@ Deno.test("missing configuration fails closed and malformed credentials do not c
     (await authorizeConsoleRequest(request("/"), { enabled: true }))?.status,
     503,
   );
-  for (const header of ["Basic", "Basic !!!", "Bearer token", basic("operator", ""), basic("wrong", "test-password")]) {
+  for (
+    const header of [
+      "Basic",
+      "Basic !!!",
+      "Bearer token",
+      basic("operator", ""),
+      basic("wrong", "test-password"),
+    ]
+  ) {
     assertEquals(
       (await authorizeConsoleRequest(request("/", header), config))?.status,
       401,

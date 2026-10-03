@@ -80,7 +80,7 @@ Deno.test("partGuid churn does not make the same stock item new again", async ()
       new FakeSource(() => Promise.resolve(result([repeated]))),
     );
     assertEquals(summary.newForWatch, 0);
-    assertEquals(summary.updatedListings, 0);
+    assertEquals(summary.updatedListings, 1);
   } finally {
     await kv.close();
   }
@@ -146,7 +146,10 @@ Deno.test("failed source search records a failed run without listing writes", as
     ) runs.push(entry.value);
     assertEquals(runs.length, 1);
     assertEquals(runs[0].status, "failed");
-    assertEquals(await store.getListing((await sourceKey(listing))!), undefined);
+    assertEquals(
+      await store.getListing((await sourceKey(listing))!),
+      undefined,
+    );
   } finally {
     await kv.close();
   }

@@ -147,7 +147,7 @@ export function GlobalRunHistory() {
         ? (
           <section className="state">
             <h2>Could not load run history.</h2>
-            <button onClick={load}>Retry</button>
+            <button type="button" onClick={load}>Retry</button>
           </section>
         )
         : !items

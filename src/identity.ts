@@ -19,7 +19,9 @@ export interface ListingIdentity {
   canonical: string;
 }
 
-export function listingIdentity(listing: CarPartListing): ListingIdentity | undefined {
+export function listingIdentity(
+  listing: CarPartListing,
+): ListingIdentity | undefined {
   const seller = normalized(listing.sellerUserId);
   const stock = normalized(listing.stockNumber);
   const year = normalized(listing.year);
@@ -34,7 +36,9 @@ export function listingIdentity(listing: CarPartListing): ListingIdentity | unde
 }
 
 /** Complete in the observed sample; trades coverage for a larger conservative key. */
-export function fallbackIdentity(listing: CarPartListing): ListingIdentity | undefined {
+export function fallbackIdentity(
+  listing: CarPartListing,
+): ListingIdentity | undefined {
   const recycler = normalized(listing.recycler?.name);
   const stock = normalized(listing.stockNumber);
   const vehicle = `${listing.year ?? ""}|${
@@ -42,19 +46,30 @@ export function fallbackIdentity(listing: CarPartListing): ListingIdentity | und
   }`;
   const part = normalized(listing.part);
   return recycler && stock && part && vehicle !== "|"
-    ? { method: "fallback_composite", canonical: `${recycler}|${stock}|${vehicle}|${part}` }
+    ? {
+      method: "fallback_composite",
+      canonical: `${recycler}|${stock}|${vehicle}|${part}`,
+    }
     : undefined;
 }
 
-export function identityForListing(listing: CarPartListing): ListingIdentity | undefined {
+export function identityForListing(
+  listing: CarPartListing,
+): ListingIdentity | undefined {
   return listingIdentity(listing);
 }
 
-export async function sourceKey(listing: CarPartListing): Promise<string | undefined> {
+export async function sourceKey(
+  listing: CarPartListing,
+): Promise<string | undefined> {
   const identity = identityForListing(listing);
   if (!identity) return undefined;
-  const bytes = new TextEncoder().encode(`car-part:v4:${identity.method}:${identity.canonical}`);
+  const bytes = new TextEncoder().encode(
+    `car-part:v4:${identity.method}:${identity.canonical}`,
+  );
   const digest = await crypto.subtle.digest("SHA-256", bytes);
-  const hash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  const hash = [...new Uint8Array(digest)].map((byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
   return `car-part:v4:sha256:${hash}`;
 }

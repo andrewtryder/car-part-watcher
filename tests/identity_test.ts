@@ -40,7 +40,10 @@ Deno.test("source key ignores Car-Part partGuid churn", async () => {
     await sourceKey({ ...listing, partGuid: undefined }),
     originalKey,
   );
-  assertEquals(identityForListing(listing)?.method, "seller_stock_vehicle_part");
+  assertEquals(
+    identityForListing(listing)?.method,
+    "seller_stock_vehicle_part",
+  );
 });
 
 Deno.test("source key distinguishes vehicles sharing seller, stock, and part", async () => {
@@ -57,11 +60,13 @@ Deno.test("source key distinguishes vehicles sharing seller, stock, and part", a
 
 Deno.test("different seller and stock combinations produce different source keys", async () => {
   assertEquals(
-    await sourceKey({ ...listing, sellerUserId: "9999" }) === await sourceKey(listing),
+    await sourceKey({ ...listing, sellerUserId: "9999" }) ===
+      await sourceKey(listing),
     false,
   );
   assertEquals(
-    await sourceKey({ ...listing, stockNumber: "OTHER" }) === await sourceKey(listing),
+    await sourceKey({ ...listing, stockNumber: "OTHER" }) ===
+      await sourceKey(listing),
     false,
   );
 });
@@ -69,9 +74,15 @@ Deno.test("different seller and stock combinations produce different source keys
 Deno.test("v4 skips rows without a complete seller, stock, vehicle, and part identity", () => {
   const withoutSeller = { ...listing, sellerUserId: undefined };
   assertEquals(identityForListing(withoutSeller), undefined);
-  assertEquals(identityForListing({ ...listing, stockNumber: undefined }), undefined);
+  assertEquals(
+    identityForListing({ ...listing, stockNumber: undefined }),
+    undefined,
+  );
   assertEquals(identityForListing({ ...listing, year: undefined }), undefined);
-  assertEquals(identityForListing({ ...listing, makeModel: undefined }), undefined);
+  assertEquals(
+    identityForListing({ ...listing, makeModel: undefined }),
+    undefined,
+  );
   assertEquals(identityForListing({ ...listing, part: undefined }), undefined);
   assertEquals(fallbackIdentity(withoutSeller)?.method, "fallback_composite");
 });

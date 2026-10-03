@@ -2,7 +2,6 @@ import {
   claimNotificationEvents,
   markDelivered,
   markFailed,
-  type NotificationEvent,
 } from "../repositories/notification_repository.ts";
 import type { NormalizedListing } from "../listing_normalizer.ts";
 import { getEmailNotificationSettings } from "../repositories/email_notification_settings_repository.ts";
@@ -72,7 +71,8 @@ export function buildNotificationEventV1(params: {
     listing: {
       id: params.listing.id,
       title,
-      price: rawListing.priceDisplay ?? (rawListing.priceAmount ? `$${rawListing.priceAmount}` : undefined),
+      price: rawListing.priceDisplay ??
+        (rawListing.priceAmount ? `$${rawListing.priceAmount}` : undefined),
       location: rawListing.recyclerLocation,
       recyclerName: rawListing.recyclerName,
       stockNumber: rawListing.stockNumber,
@@ -99,12 +99,16 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
     try {
       parsed = JSON.parse(parsed);
     } catch {
-      throw new NotificationPayloadValidationError("Payload must be valid JSON");
+      throw new NotificationPayloadValidationError(
+        "Payload must be valid JSON",
+      );
     }
   }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new NotificationPayloadValidationError("Payload must be a non-null object");
+    throw new NotificationPayloadValidationError(
+      "Payload must be a non-null object",
+    );
   }
 
   const obj = parsed as Record<string, unknown>;
@@ -126,7 +130,9 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
   }
 
   if (!obj.watch || typeof obj.watch !== "object" || Array.isArray(obj.watch)) {
-    throw new NotificationPayloadValidationError("Missing or invalid watch object");
+    throw new NotificationPayloadValidationError(
+      "Missing or invalid watch object",
+    );
   }
 
   const watch = obj.watch as Record<string, unknown>;
@@ -134,28 +140,46 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
     throw new NotificationPayloadValidationError("Missing or invalid watch.id");
   }
   if (typeof watch.name !== "string" || !watch.name.trim()) {
-    throw new NotificationPayloadValidationError("Missing or invalid watch.name");
+    throw new NotificationPayloadValidationError(
+      "Missing or invalid watch.name",
+    );
   }
 
-  if (!obj.listing || typeof obj.listing !== "object" || Array.isArray(obj.listing)) {
-    throw new NotificationPayloadValidationError("Missing or invalid listing object");
+  if (
+    !obj.listing || typeof obj.listing !== "object" ||
+    Array.isArray(obj.listing)
+  ) {
+    throw new NotificationPayloadValidationError(
+      "Missing or invalid listing object",
+    );
   }
 
   const listing = obj.listing as Record<string, unknown>;
   if (typeof listing.id !== "string" || !listing.id.trim()) {
-    throw new NotificationPayloadValidationError("Missing or invalid listing.id");
+    throw new NotificationPayloadValidationError(
+      "Missing or invalid listing.id",
+    );
   }
   if (typeof listing.title !== "string" || !listing.title.trim()) {
-    throw new NotificationPayloadValidationError("Missing or invalid listing.title");
+    throw new NotificationPayloadValidationError(
+      "Missing or invalid listing.title",
+    );
   }
 
-  if (!obj.schedule || typeof obj.schedule !== "object" || Array.isArray(obj.schedule)) {
-    throw new NotificationPayloadValidationError("Missing or invalid schedule object");
+  if (
+    !obj.schedule || typeof obj.schedule !== "object" ||
+    Array.isArray(obj.schedule)
+  ) {
+    throw new NotificationPayloadValidationError(
+      "Missing or invalid schedule object",
+    );
   }
 
   const schedule = obj.schedule as Record<string, unknown>;
   if (typeof schedule.slot !== "string" || !schedule.slot.trim()) {
-    throw new NotificationPayloadValidationError("Missing or invalid schedule.slot");
+    throw new NotificationPayloadValidationError(
+      "Missing or invalid schedule.slot",
+    );
   }
 
   const changes = Array.isArray(obj.changes)
@@ -178,16 +202,34 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
       id: listing.id,
       title: listing.title,
       price: typeof listing.price === "string" ? listing.price : undefined,
-      location: typeof listing.location === "string" ? listing.location : undefined,
-      recyclerName: typeof listing.recyclerName === "string" ? listing.recyclerName : undefined,
-      stockNumber: typeof listing.stockNumber === "string" ? listing.stockNumber : undefined,
-      description: typeof listing.description === "string" ? listing.description : undefined,
+      location: typeof listing.location === "string"
+        ? listing.location
+        : undefined,
+      recyclerName: typeof listing.recyclerName === "string"
+        ? listing.recyclerName
+        : undefined,
+      stockNumber: typeof listing.stockNumber === "string"
+        ? listing.stockNumber
+        : undefined,
+      description: typeof listing.description === "string"
+        ? listing.description
+        : undefined,
       grade: typeof listing.grade === "string" ? listing.grade : undefined,
-      damageCode: typeof listing.damageCode === "string" ? listing.damageCode : undefined,
-      imageUrl: typeof listing.imageUrl === "string" ? listing.imageUrl : undefined,
-      listingUrl: typeof listing.listingUrl === "string" ? listing.listingUrl : undefined,
-      photoUrl: typeof listing.photoUrl === "string" ? listing.photoUrl : undefined,
-      quoteUrl: typeof listing.quoteUrl === "string" ? listing.quoteUrl : undefined,
+      damageCode: typeof listing.damageCode === "string"
+        ? listing.damageCode
+        : undefined,
+      imageUrl: typeof listing.imageUrl === "string"
+        ? listing.imageUrl
+        : undefined,
+      listingUrl: typeof listing.listingUrl === "string"
+        ? listing.listingUrl
+        : undefined,
+      photoUrl: typeof listing.photoUrl === "string"
+        ? listing.photoUrl
+        : undefined,
+      quoteUrl: typeof listing.quoteUrl === "string"
+        ? listing.quoteUrl
+        : undefined,
     },
     changes,
     schedule: {
@@ -201,10 +243,15 @@ export interface Notifier {
 }
 
 export class LoggingNotifier implements Notifier {
-  async deliver(event: NotificationEventV1) {
+  deliver(event: NotificationEventV1): Promise<void> {
     console.log(
-      `[notification] eventId=${event.eventId} watchId=${event.watch.id} watch=${JSON.stringify(event.watch.name)} listingId=${event.listing.id} listing=${JSON.stringify(event.listing.title)} price=${event.listing.price ?? ""} slot=${event.schedule.slot}`,
+      `[notification] eventId=${event.eventId} watchId=${event.watch.id} watch=${
+        JSON.stringify(event.watch.name)
+      } listingId=${event.listing.id} listing=${
+        JSON.stringify(event.listing.title)
+      } price=${event.listing.price ?? ""} slot=${event.schedule.slot}`,
     );
+    return Promise.resolve();
   }
 }
 
@@ -260,9 +307,10 @@ export async function processNotificationOutbox(
       console.error(
         `[notification_failed] eventId=${canonicalEvent.eventId} outboxId=${row.id} error=${message}`,
       );
-      const code = deliverErr && typeof deliverErr === "object" && "code" in deliverErr
-        ? String((deliverErr as { code: unknown }).code)
-        : "NOTIFIER_FAILED";
+      const code =
+        deliverErr && typeof deliverErr === "object" && "code" in deliverErr
+          ? String((deliverErr as { code: unknown }).code)
+          : "NOTIFIER_FAILED";
       await markFailed(row.id, row.attempts, code, message);
       failed++;
     }

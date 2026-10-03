@@ -23,20 +23,23 @@ Deno Deploy secrets and are never stored in PostgreSQL.
 When enabled, `GmailNotifier` sends plain text and escaped HTML, including
 available photo, quote, and saved-search links. Subjects follow
 `[Car Part Watcher] <watch>: New <listing> — <price>` (without the suffix when
-price is absent). Configure with `deno task email:configure -- --enable
---use-gmail-address`; `deno task email:test` sends one isolated transport test.
-Failed SMTP delivery enters the existing retry/backoff flow, while disabled
-email uses `LoggingNotifier`. SMTP is at-least-once around the send/mark-
-delivered crash window, mitigated by a deterministic Message-ID.
+price is absent). Configure with
+`deno task email:configure -- --enable
+--use-gmail-address`;
+`deno task email:test` sends one isolated transport test. Failed SMTP delivery
+enters the existing retry/backoff flow, while disabled email uses
+`LoggingNotifier`. SMTP is at-least-once around the send/mark- delivered crash
+window, mitigated by a deterministic Message-ID.
 
 The test command sends directly and never creates a notification event, changes
 listing state, or invokes a Car-Part search.
 
-`email:test` is dry-run by default. A send requires all of `--send`, `--confirm
-SEND_TEST_EMAIL`, and `--allow-production` (plus an optional traceable
-`--test-id`). To stop normal delivery cleanly, disable the singleton DB setting.
-Removing the Gmail app password is an emergency stop but leaves pending events
-to fail and retry until credentials/settings are restored.
+`email:test` is dry-run by default. A send requires all of `--send`,
+`--confirm
+SEND_TEST_EMAIL`, and `--allow-production` (plus an optional
+traceable `--test-id`). To stop normal delivery cleanly, disable the singleton
+DB setting. Removing the Gmail app password is an emergency stop but leaves
+pending events to fail and retry until credentials/settings are restored.
 
 ## Production verification — 2026-09-13
 
@@ -48,20 +51,20 @@ events. Read-state mutation was not exercised in production because no natural
 new inventory appeared; automated coverage remains the verification for that
 path.
 
-The real-use `CRV Front Bumper` watch
-(`14337db6-b793-4228-804e-dacd52baeb5d`) also confirmed this behavior on
-2026-09-13. Its baseline reconciled 41 listings as new-for-watch with zero
-events, because `notify_on_initial_run` is false. The immediate repeat returned
-the same 41 listings with zero new listings and still zero events. Its
-watch-filtered New Parts view displayed “No unread parts.” The next natural
-acceptance event is a genuinely new matching listing, which should create one
-unread `new_listing` event and then be processed by `LoggingNotifier`.
+The real-use `CRV Front Bumper` watch (`14337db6-b793-4228-804e-dacd52baeb5d`)
+also confirmed this behavior on 2026-09-13. Its baseline reconciled 41 listings
+as new-for-watch with zero events, because `notify_on_initial_run` is false. The
+immediate repeat returned the same 41 listings with zero new listings and still
+zero events. Its watch-filtered New Parts view displayed “No unread parts.” The
+next natural acceptance event is a genuinely new matching listing, which should
+create one unread `new_listing` event and then be processed by
+`LoggingNotifier`.
 
 ## Corrected-history cutover — 2026-09-13
 
 The corrected parser/identity deployment intentionally reset derived result
 history while preserving watches and catalogs. The CR-V fresh baseline had 272
 new-for-watch relationships and zero events because `notify_on_initial_run`
-remained false. Its subsequent 272-listing repeat had zero new relationships
-and zero events. `LoggingNotifier` remains the delivery implementation; no
-synthetic production event was created merely to exercise delivery metadata.
+remained false. Its subsequent 272-listing repeat had zero new relationships and
+zero events. `LoggingNotifier` remains the delivery implementation; no synthetic
+production event was created merely to exercise delivery metadata.

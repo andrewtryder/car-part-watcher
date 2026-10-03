@@ -2,8 +2,8 @@
 
 A listing identity must remain stable when Car-Part changes presentation or
 opaque request identifiers. The durable identity is intentionally based on
-seller inventory, not on result order, price, description, grade, image URLs,
-or transient/session values.
+seller inventory, not on result order, price, description, grade, image URLs, or
+transient/session values.
 
 ## Observed candidates
 
@@ -26,12 +26,11 @@ The primary identity is:
 
 `sellerUserId + normalized stockNumber + normalized year + normalized makeModel + normalized part`
 
-The durable application key is
-`car-part:v4:sha256:<digest>` over that canonical identity and records
-`seller_stock_vehicle_part` as the method.
+The durable application key is `car-part:v4:sha256:<digest>` over that canonical
+identity and records `seller_stock_vehicle_part` as the method.
 
-`partGuid` remains deliberately excluded. A production notification incident
-on 2026-09-20 showed the same physical stock item appearing repeatedly while the
+`partGuid` remains deliberately excluded. A production notification incident on
+2026-09-20 showed the same physical stock item appearing repeatedly while the
 opaque Car-Part GUID changed. A second production incident beginning 2026-09-21
 showed that seller + stock + part alone can also identify more than one visible
 vehicle, causing `LISTING_IDENTITY_COLLISION` failures. Vehicle year and

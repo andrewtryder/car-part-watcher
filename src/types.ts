@@ -46,7 +46,12 @@ export interface CarPartListing {
 export interface SpikeResult {
   search: CarPartSearchRequest;
   refinement?: { selected: string; available: string[] };
-  results: { count: number; hasNextPage: boolean; pagesFetched?: number; listings: CarPartListing[] };
+  results: {
+    count: number;
+    hasNextPage: boolean;
+    pagesFetched?: number;
+    listings: CarPartListing[];
+  };
   timings?: SearchTimings;
   runtimeInfo?: BrowserRuntimeInfo;
 }

@@ -19,7 +19,7 @@ const linuxAssets: Record<string, { asset: string; sha256: string }> = {
   },
 };
 
-async function unusedLocalPort(): Promise<number> {
+function unusedLocalPort(): number {
   const listener = Deno.listen({ hostname: "127.0.0.1", port: 0 });
   try {
     return (listener.addr as Deno.NetAddr).port;
@@ -61,7 +61,7 @@ export class LightpandaBrowserProvider implements BrowserProvider {
         "LIGHTPANDA_PATH must point to a verified Lightpanda executable",
       );
     }
-    const port = await unusedLocalPort();
+    const port = unusedLocalPort();
     const endpoint = `http://127.0.0.1:${port}`;
     let child: Deno.ChildProcess;
     try {

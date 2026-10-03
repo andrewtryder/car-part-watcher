@@ -77,7 +77,9 @@ export function Inbox() {
       );
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not load notifications.",
+        cause instanceof Error
+          ? cause.message
+          : "Could not load notifications.",
       );
     }
   }, [all, watchId, typeFilter]);
@@ -147,7 +149,7 @@ export function Inbox() {
         {data?.unreadCount
           ? (
             <div className="headerActions">
-              <button disabled={busy === "all"} onClick={markAll}>
+              <button type="button" disabled={busy === "all"} onClick={markAll}>
                 {busy === "all"
                   ? "Marking read…"
                   : watchId
@@ -162,12 +164,14 @@ export function Inbox() {
       <section className="panel inboxControls">
         <div className="tabs" aria-label="Notification status">
           <button
+            type="button"
             className={!all ? "activeTab" : ""}
             onClick={() => update("status", "")}
           >
             Unread
           </button>
           <button
+            type="button"
             className={all ? "activeTab" : ""}
             onClick={() => update("status", "all")}
           >
@@ -204,7 +208,7 @@ export function Inbox() {
           <section className="state">
             <h2>Could not load notifications.</h2>
             <p>{error}</p>
-            <button onClick={load}>Retry</button>
+            <button type="button" onClick={load}>Retry</button>
           </section>
         )
         : !data
@@ -212,7 +216,9 @@ export function Inbox() {
         : !data.items.length
         ? (
           <section className="empty">
-            <h2>{all ? "No notifications recorded" : "You’re all caught up"}</h2>
+            <h2>
+              {all ? "No notifications recorded" : "You’re all caught up"}
+            </h2>
             <p>
               {all
                 ? "Parts and changes will appear here after a saved search runs."
@@ -243,7 +249,8 @@ export function Inbox() {
                       {event.readAt ? "Read" : isUpdated ? "MODIFIED" : "NEW"}
                     </span>
                     <small className="muted">
-                      {isUpdated ? "Updated" : "Found"} {date(event.createdAt, timezone)}
+                      {isUpdated ? "Updated" : "Found"}{" "}
+                      {date(event.createdAt, timezone)}
                     </small>
                   </div>
 
@@ -276,7 +283,8 @@ export function Inbox() {
                           {joined(
                             listing.price,
                             listing.grade && `Grade ${listing.grade}`,
-                            listing.damageCode && `Damage ${listing.damageCode}`,
+                            listing.damageCode &&
+                              `Damage ${listing.damageCode}`,
                             listing.stockNumber &&
                               `Stock #${listing.stockNumber}`,
                             listing.description,
@@ -309,7 +317,9 @@ export function Inbox() {
                           {listing.recyclerName && (
                             <strong>{listing.recyclerName}</strong>
                           )}
-                          {listing.recyclerName && listing.location ? " · " : ""}
+                          {listing.recyclerName && listing.location
+                            ? " · "
+                            : ""}
                           {listing.location}
                         </p>
                       )}
@@ -367,6 +377,7 @@ export function Inbox() {
 
                     {!event.readAt && (
                       <button
+                        type="button"
                         className="quiet"
                         disabled={busy === event.id}
                         onClick={() => markOne(event.id)}

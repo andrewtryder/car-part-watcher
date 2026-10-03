@@ -1,6 +1,8 @@
 import postgres from "npm:postgres@3.4.7";
 
-let client: ReturnType<typeof postgres> | undefined;
+export type Sql = ReturnType<typeof postgres>;
+
+let client: Sql | undefined;
 
 export function getDatabase() {
   const url = Deno.env.get("DATABASE_URL");

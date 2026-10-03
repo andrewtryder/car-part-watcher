@@ -34,6 +34,8 @@
     "npm:@tailwindcss/vite@^4.3.3": "4.3.3_vite@8.3.0",
     "npm:@trpc/client@^11.18.0": "11.18.0_@trpc+server@11.18.0_typescript@7.0.2",
     "npm:@trpc/server@^11.18.0": "11.18.0_typescript@7.0.2",
+    "npm:@types/react-dom@19": "19.3.0_@types+react@19.3.0",
+    "npm:@types/react@19": "19.3.0",
     "npm:@types/ws@^8.18.1": "8.18.1",
     "npm:@vitejs/plugin-react@*": "6.1.1_vite@8.3.0",
     "npm:@vitejs/plugin-react@^6.1.1": "6.1.1_vite@8.3.0",
@@ -428,6 +430,18 @@
         "undici-types"
       ]
     },
+    "@types/react-dom@19.3.0_@types+react@19.3.0": {
+      "integrity": "sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q==",
+      "dependencies": [
+        "@types/react"
+      ]
+    },
+    "@types/react@19.3.0": {
+      "integrity": "sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==",
+      "dependencies": [
+        "csstype"
+      ]
+    },
     "@types/ws@8.18.1": {
       "integrity": "sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==",
       "dependencies": [
@@ -571,6 +585,9 @@
     },
     "cssom@0.5.0": {
       "integrity": "sha512-iKuQcq+NdHqlAcwUY0o/HL69XQrUaQdMjmStJ8JFmUaiiQErlhrmuigkg/CU4E2J0IyUKUrMAgl36TvN67MqTw=="
+    },
+    "csstype@3.2.3": {
+      "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="
     },
     "default-browser-id@5.0.1": {
       "integrity": "sha512-x1VCxdX4t+8wVfd1so/9w+vQ4vx7lKd2Qp5tDRutErwmR85OgmfX7RlLRMWafRMY7hbEiXIbudNrjOAPa/hL8Q=="
@@ -1067,6 +1084,8 @@
   "workspace": {
     "dependencies": [
       "npm:@tailwindcss/vite@^4.3.3",
+      "npm:@types/react-dom@19",
+      "npm:@types/react@19",
       "npm:@vitejs/plugin-react@^6.1.1",
       "npm:lucide-react@^1.45.0",
       "npm:react-dom@^19.3.0",

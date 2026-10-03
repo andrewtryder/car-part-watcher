@@ -15,7 +15,11 @@ function signature(listing: NormalizedListing) {
 
 export class ListingIdentityCollisionError extends Error {
   code = "LISTING_IDENTITY_COLLISION";
-  constructor(sourceKey: string, existingSignature?: string, incomingSignature?: string) {
+  constructor(
+    sourceKey: string,
+    existingSignature?: string,
+    incomingSignature?: string,
+  ) {
     const details = existingSignature && incomingSignature
       ? ` (existing=${existingSignature}; incoming=${incomingSignature})`
       : "";

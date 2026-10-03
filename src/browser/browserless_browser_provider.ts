@@ -4,7 +4,10 @@ import { SpikeError } from "../types.ts";
 
 const defaultEndpoint = "wss://production-sfo.browserless.io";
 const sessionTimeoutMs = Math.min(
-  Math.max(Number(Deno.env.get("BROWSERLESS_SESSION_TIMEOUT_MS") ?? 60_000), 60_000),
+  Math.max(
+    Number(Deno.env.get("BROWSERLESS_SESSION_TIMEOUT_MS") ?? 60_000),
+    60_000,
+  ),
   300_000,
 );
 
