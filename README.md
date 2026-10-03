@@ -50,8 +50,7 @@ the new revision.
 Console authentication is enabled by default. When enabled, deployments must
 provide the `CONSOLE_USERNAME` and `CONSOLE_PASSWORD` secrets. To intentionally
 make the operational console and its API public, set
-`CONSOLE_AUTH_ENABLED=false`. See
-[security documentation](docs/security.md).
+`CONSOLE_AUTH_ENABLED=false`. See [security documentation](docs/security.md).
 
 ## Documentation
 
