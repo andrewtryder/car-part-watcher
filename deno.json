@@ -45,7 +45,7 @@
     "@types/react-dom": "npm:@types/react-dom@^19.3.0",
     "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^6.1.1",
     "lucide-react": "npm:lucide-react@^1.49.0",
-    "happy-dom": "npm:happy-dom@17.6.1",
+    "happy-dom": "npm:happy-dom@20.14.5",
     "react": "npm:react@^19.3.0",
     "react-dom": "npm:react-dom@^19.3.0",
     "react-router-dom": "npm:react-router-dom@^7.18.4",
