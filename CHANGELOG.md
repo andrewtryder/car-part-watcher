@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0](https://github.com/andrewtryder/car-part-watcher/compare/v0.3.0...v0.4.0) (2026-10-18)
+
+
+### Features
+
+* **listings:** parse and display listing colors and paint codes ([b88a049](https://github.com/andrewtryder/car-part-watcher/commit/b88a04907f1fabc3d1e14c99ef0728586590e497))
+* parse listing colors and suppress update notification emails by default ([94563af](https://github.com/andrewtryder/car-part-watcher/commit/94563afeb451b0f6c9e2aead06d7a223af299136))
+
+
+### Bug Fixes
+
+* **notifications:** suppress updated listing emails by default ([59f8e41](https://github.com/andrewtryder/car-part-watcher/commit/59f8e411fe7e51295ce98f24919c575dd29a2362))
+
 ## [0.3.0](https://github.com/andrewtryder/car-part-watcher/compare/v0.2.0...v0.3.0) (2026-10-03)
 
 ### Features
