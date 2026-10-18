@@ -345,6 +345,7 @@ if (databaseUrl) {
         },
       };
 
+      // Repeat run with modified price -> triggers listing_updated event, but suppresses email delivery by default
       const summary3 = await executeWatch(
         fakeSearchClient(modifiedResult),
         testWatch.id,
@@ -358,16 +359,20 @@ if (databaseUrl) {
       assertEquals(summary3.newListingCount, 0);
       assertEquals(summary3.changedCount, 1); // Detected price update
 
-      // Verify listing_updated event was created in outbox
-      const updateEvents = await sql`
-        select e.*, d.status, d.processed_at from notification_events e join notification_deliveries d on d.event_id=e.id
+      // Verify listing_updated event was created in inbox/events, but NO delivery was created by default
+      const updateEventsNoDelivery = await sql`
+        select * from notification_events
+        where watch_id = ${testWatch.id} and event_type = 'listing_updated'
+      `;
+      assertEquals(updateEventsNoDelivery.length, 1);
+
+      const updateDeliveriesDefault = await sql`
+        select d.* from notification_events e join notification_deliveries d on d.event_id=e.id
         where e.watch_id = ${testWatch.id} and e.event_type = 'listing_updated'
       `;
-      assertEquals(updateEvents.length, 1);
-      assertEquals(updateEvents[0].status, "delivered");
-      assertExists(updateEvents[0].processed_at);
+      assertEquals(updateDeliveriesDefault.length, 0);
 
-      // Verify delivery policy: suppressing updated listings
+      // Verify delivery policy: explicitly enabling email delivery for updated listings
       const modifiedResult2: CarPartSearchResult = {
         ...fakeResult,
         results: {
@@ -384,18 +389,20 @@ if (databaseUrl) {
         testWatch.id,
         {
           runType: "manual",
-          notificationPolicy: { notifyUpdatedListings: false },
+          notificationPolicy: { notifyUpdatedListings: true },
         },
       );
 
       assertExists(summary4);
       assertEquals(summary4.changedCount, 1);
-      // No additional update event added
-      const updateEventsAfterPolicy = await sql`
+      // Now a delivery is created and processed
+      const updateEventsWithDelivery = await sql`
         select e.*, d.status, d.processed_at from notification_events e join notification_deliveries d on d.event_id=e.id
         where e.watch_id = ${testWatch.id} and e.event_type = 'listing_updated'
       `;
-      assertEquals(updateEventsAfterPolicy.length, 1);
+      assertEquals(updateEventsWithDelivery.length, 1);
+      assertEquals(updateEventsWithDelivery[0].status, "delivered");
+      assertExists(updateEventsWithDelivery[0].processed_at);
     } finally {
       await sql`delete from notification_events where watch_id=${testWatch.id}`;
       await sql`delete from listing_changes where watch_id=${testWatch.id}`;
