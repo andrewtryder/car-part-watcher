@@ -102,6 +102,8 @@ export async function handleRunWatch(
         grade: listing.grade,
         stockNumber: listing.stockNumber,
         priceDisplay: listing.priceDisplay,
+        color: listing.color,
+        paintCode: listing.paintCode,
         recyclerName: listing.recyclerName,
         recyclerLocation: listing.recyclerLocation,
       })),

@@ -10,9 +10,11 @@ Notifications separate three concerns:
 
 Events and inbox state are written atomically with reconciliation and run
 completion. After a baseline, facts create event/inbox rows regardless of email
-policy; `notifyNewListings` and `notifyUpdatedListings` control only email
-delivery creation. `notifyOnInitialRun=false` makes a first successful baseline
-create none of these records.
+policy; `notifyNewListings` (default: true) and `notifyUpdatedListings`
+(default: false) control only email delivery creation. By default, emails are
+sent only for genuine new listings, while updates remain visible in the web
+inbox. `notifyOnInitialRun=false` makes a first successful baseline create none
+of these records.
 
 ## Delivery
 

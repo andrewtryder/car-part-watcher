@@ -63,6 +63,11 @@ export function formatFieldLabel(field: string): string {
     case "quote_url":
     case "quoteUrl":
       return "Quote Link";
+    case "color":
+      return "Color";
+    case "paint_code":
+    case "paintCode":
+      return "Paint Code";
     default:
       return field;
   }

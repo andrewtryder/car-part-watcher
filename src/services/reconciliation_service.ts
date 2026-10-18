@@ -129,7 +129,7 @@ export async function executeWatch(
       "manual";
     const notifyNew = options.notificationPolicy?.notifyNewListings ?? true;
     const notifyUpdated = options.notificationPolicy?.notifyUpdatedListings ??
-      true;
+      false;
 
     await getDatabase().begin(async (sql) => {
       for (const listing of unique.values()) {

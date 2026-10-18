@@ -380,6 +380,87 @@ p {
   color: #4d5e68;
 }
 
+/* Color Badges & Indicators */
+.colorCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+}
+.colorBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  white-space: nowrap;
+}
+.colorDot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background: #94a3b8;
+  flex-shrink: 0;
+}
+.colorDot[data-color="Black"] {
+  background: #111827;
+}
+.colorDot[data-color="White"] {
+  background: #ffffff;
+  border-color: #94a3b8;
+}
+.colorDot[data-color="Silver"] {
+  background: #cbd5e1;
+}
+.colorDot[data-color="Gray"] {
+  background: #64748b;
+}
+.colorDot[data-color="Blue"] {
+  background: #2563eb;
+}
+.colorDot[data-color="Red"] {
+  background: #dc2626;
+}
+.colorDot[data-color="Maroon"] {
+  background: #881337;
+}
+.colorDot[data-color="Green"] {
+  background: #16a34a;
+}
+.colorDot[data-color="Beige"] {
+  background: #d4c5b9;
+}
+.colorDot[data-color="Brown"] {
+  background: #78350f;
+}
+.colorDot[data-color="Gold"] {
+  background: #ca8a04;
+}
+.colorDot[data-color="Yellow"] {
+  background: #eab308;
+}
+.colorDot[data-color="Orange"] {
+  background: #ea580c;
+}
+.colorDot[data-color="Purple"] {
+  background: #9333ea;
+}
+
+.paintCodeSub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding-left: 2px;
+}
+
 /* Watch Meta Definition Lists */
 .watch dl {
   display: grid;
@@ -951,10 +1032,21 @@ td details summary {
   flex: 1;
   min-width: 0;
 }
+.notificationTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 4px;
+}
+.notificationTitleRow h2,
 .notificationBody h2 {
   font-size: 16px;
   font-weight: 700;
   margin: 0 0 4px;
+}
+.notificationTitleRow h2 {
+  margin: 0;
 }
 .notificationBody .criteria {
   margin: 4px 0 6px;

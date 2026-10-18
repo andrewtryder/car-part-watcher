@@ -77,6 +77,8 @@ export interface WatchListingDto {
   stockNumber?: string;
   priceAmount?: number;
   priceDisplay?: string;
+  color?: string;
+  paintCode?: string;
   recyclerName?: string;
   recyclerLocation?: string;
   recyclerPhone?: string;

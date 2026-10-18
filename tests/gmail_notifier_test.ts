@@ -123,3 +123,21 @@ Deno.test("renders listing_updated email with changed fields", () => {
   );
   assertStringIncludes(rendered.html, "<strong>grade:</strong> B &rarr; A");
 });
+
+Deno.test("renders email with parsed color and paint code", () => {
+  const colorEvent: NotificationEventV1 = {
+    ...event,
+    listing: {
+      ...event.listing,
+      color: "Black",
+      paintCode: "NH731P",
+    },
+  };
+  const rendered = renderNotificationEmail(colorEvent, settings);
+  assertEquals(
+    rendered.subject,
+    "[Car Part Watcher] CRV Front Bumper: New 2019 Honda CRV Bumper Assy (Front) includes cover [Black] — $380",
+  );
+  assertStringIncludes(rendered.text, "Color: Black (NH731P)");
+  assertStringIncludes(rendered.html, "<li>Color: Black (NH731P)</li>");
+});

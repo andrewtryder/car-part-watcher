@@ -240,7 +240,24 @@ export function Inbox() {
                       : <div className="listingThumbPlaceholder">No Photo</div>}
 
                     <div className="notificationBody">
-                      <h2>{listing.title}</h2>
+                      <div className="notificationTitleRow">
+                        <h2>{listing.title}</h2>
+                        {listing.color && (
+                          <span
+                            className="colorBadge"
+                            title={listing.paintCode
+                              ? `Paint code: ${listing.paintCode}`
+                              : listing.color}
+                          >
+                            <span
+                              className="colorDot"
+                              data-color={listing.color}
+                            />
+                            {listing.color}
+                            {listing.paintCode && ` (${listing.paintCode})`}
+                          </span>
+                        )}
+                      </div>
                       {(listing.description || listing.grade ||
                         listing.stockNumber || listing.price ||
                         listing.damageCode) && (

@@ -37,8 +37,14 @@ export function renderNotificationEmail(
   const isUpdated = event.eventType === "listing_updated";
   const action = isUpdated ? "Updated" : "New";
   const title = event.listing.title.slice(0, 180);
+  const colorDisplay = event.listing.color
+    ? (event.listing.paintCode
+      ? `${event.listing.color} (${event.listing.paintCode})`
+      : event.listing.color)
+    : undefined;
+  const colorTag = event.listing.color ? ` [${event.listing.color}]` : "";
   const subject =
-    `${settings.subjectPrefix} ${event.watch.name}: ${action} ${title}${
+    `${settings.subjectPrefix} ${event.watch.name}: ${action} ${title}${colorTag}${
       event.listing.price ? ` — ${event.listing.price}` : ""
     }`.slice(0, 500);
   const savedSearch = settings.appBaseUrl
@@ -51,6 +57,7 @@ export function renderNotificationEmail(
   );
   const details = [
     line("Price", event.listing.price),
+    line("Color", colorDisplay),
     line("Recycler", event.listing.recyclerName),
     line("Location", event.listing.location),
     line("Stock #", event.listing.stockNumber),

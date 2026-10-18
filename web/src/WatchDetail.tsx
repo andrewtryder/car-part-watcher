@@ -38,6 +38,7 @@ const formatDate = (value: string | undefined, timezone: string) =>
 type SortField =
   | "photo"
   | "vehicle"
+  | "color"
   | "details"
   | "price"
   | "recycler"
@@ -88,6 +89,18 @@ export function Listings({
   const [sortField, setSortField] = useState<SortField>("lastSeen");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [filterMode, setFilterMode] = useState<"all" | "modified">("all");
+  const [colorFilter, setColorFilter] = useState<string>("all");
+
+  const availableColors = useMemo(() => {
+    if (!items) return [];
+    const set = new Set<string>();
+    for (const item of items) {
+      if (item.color) {
+        set.add(item.color);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [items]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -114,6 +127,11 @@ export function Listings({
     if (filterMode === "modified") {
       list = list.filter((item) => item.isModified);
     }
+    if (colorFilter !== "all") {
+      list = list.filter((item) =>
+        colorFilter === "unknown" ? !item.color : item.color === colorFilter
+      );
+    }
     list.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -135,6 +153,19 @@ export function Listings({
           comparison = strA.localeCompare(strB, undefined, {
             sensitivity: "base",
           });
+          break;
+        }
+        case "color": {
+          const strA = [a.color, a.paintCode].filter(Boolean).join(" ");
+          const strB = [b.color, b.paintCode].filter(Boolean).join(" ");
+          if (!strA && !strB) comparison = 0;
+          else if (!strA) comparison = 1;
+          else if (!strB) comparison = -1;
+          else {
+            comparison = strA.localeCompare(strB, undefined, {
+              sensitivity: "base",
+            });
+          }
           break;
         }
         case "details": {
@@ -189,7 +220,7 @@ export function Listings({
       return sortDirection === "asc" ? comparison : -comparison;
     });
     return list;
-  }, [items, filterMode, sortField, sortDirection]);
+  }, [items, filterMode, colorFilter, sortField, sortDirection]);
 
   const renderSortHeader = (field: SortField, label: string) => {
     const isActive = sortField === field;
@@ -234,6 +265,23 @@ export function Listings({
               <option value="modified">Modified only</option>
             </select>
           </label>
+          {availableColors.length > 0 && (
+            <label>
+              Color
+              <select
+                value={colorFilter}
+                onChange={(e) => setColorFilter(e.target.value)}
+              >
+                <option value="all">All colors</option>
+                {availableColors.map((col) => (
+                  <option key={col} value={col}>
+                    {col}
+                  </option>
+                ))}
+                <option value="unknown">Unspecified</option>
+              </select>
+            </label>
+          )}
           <label>
             Sort
             <select
@@ -249,6 +297,8 @@ export function Listings({
             >
               <option value="lastSeen-desc">Last Seen (Newest first)</option>
               <option value="lastSeen-asc">Last Seen (Oldest first)</option>
+              <option value="color-asc">Color (A – Z)</option>
+              <option value="color-desc">Color (Z – A)</option>
               <option value="modified-desc">Modified first</option>
               <option value="firstSeen-desc">First Seen (Newest first)</option>
               <option value="firstSeen-asc">First Seen (Oldest first)</option>
@@ -305,6 +355,7 @@ export function Listings({
                 <tr>
                   {renderSortHeader("photo", "Photo")}
                   {renderSortHeader("vehicle", "Vehicle")}
+                  {renderSortHeader("color", "Color")}
                   {renderSortHeader("details", "Details")}
                   {renderSortHeader("price", "Price")}
                   {renderSortHeader("recycler", "Recycler")}
@@ -362,6 +413,34 @@ export function Listings({
                             </span>
                           </div>
                         )}
+                      </td>
+                      <td>
+                        {item.color
+                          ? (
+                            <div className="colorCell">
+                              <span
+                                className="colorBadge"
+                                title={item.paintCode
+                                  ? `Paint code: ${item.paintCode}`
+                                  : item.color}
+                              >
+                                <span
+                                  className="colorDot"
+                                  data-color={item.color}
+                                />
+                                {item.color}
+                              </span>
+                              {item.paintCode && (
+                                <span
+                                  className="paintCodeSub"
+                                  title={`Paint code: ${item.paintCode}`}
+                                >
+                                  {item.paintCode}
+                                </span>
+                              )}
+                            </div>
+                          )
+                          : <span className="muted">—</span>}
                       </td>
                       <td>
                         {[

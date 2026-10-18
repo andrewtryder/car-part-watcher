@@ -4,6 +4,7 @@ import {
   sourceKey,
 } from "./identity.ts";
 import type { CarPartListing } from "./types.ts";
+import { parseListingColor } from "./color_parser.ts";
 
 export type { IdentityMethod };
 
@@ -25,6 +26,8 @@ export interface NormalizedListing {
   priceAmount?: number;
   priceCurrency?: string;
   priceDisplay?: string;
+  color?: string;
+  paintCode?: string;
   recyclerName?: string;
   recyclerLocation?: string;
   recyclerPhone?: string;
@@ -49,6 +52,8 @@ export async function normalizeListing(
     const parsed = Number(raw.price?.display?.replace(/[^0-9.]/g, ""));
     return Number.isFinite(parsed) ? parsed : undefined;
   })();
+  const cleanedDesc = clean(raw.description);
+  const parsedColor = parseListingColor(cleanedDesc);
   return {
     source: "car-part",
     sourceKey: key,
@@ -61,12 +66,14 @@ export async function normalizeListing(
     year: clean(raw.year),
     makeModel: clean(raw.makeModel),
     part: clean(raw.part),
-    description: clean(raw.description),
+    description: cleanedDesc,
     damageCode: clean(raw.damageCode),
     grade: clean(raw.grade),
     priceAmount,
     priceCurrency: clean(raw.price?.currency),
     priceDisplay: clean(raw.price?.display),
+    color: parsedColor?.color,
+    paintCode: parsedColor?.code,
     recyclerName: clean(raw.recycler?.name),
     recyclerLocation: clean(raw.recycler?.location),
     recyclerPhone: clean(raw.recycler?.phone),
@@ -94,6 +101,8 @@ export function detailedMutableChanges(
     { key: "grade", rowKey: "grade" },
     { key: "description", rowKey: "description" },
     { key: "damageCode", rowKey: "damage_code" },
+    { key: "color", rowKey: "color" },
+    { key: "paintCode", rowKey: "paint_code" },
     { key: "stockNumber", rowKey: "stock_number" },
     { key: "recyclerName", rowKey: "recycler_name" },
     { key: "recyclerLocation", rowKey: "recycler_location" },
