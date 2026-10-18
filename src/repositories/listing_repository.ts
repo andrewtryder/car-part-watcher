@@ -28,6 +28,8 @@ interface ListingRow {
   price_amount?: string | number;
   price_currency?: string;
   price_display?: string;
+  color?: string;
+  paint_code?: string;
   recycler_name?: string;
   recycler_location?: string;
   recycler_phone?: string;
@@ -67,6 +69,8 @@ const rowToListing = (row: ListingRow): StoredListing => ({
   priceAmount: row.price_amount ? Number(row.price_amount) : undefined,
   priceCurrency: row.price_currency,
   priceDisplay: row.price_display,
+  color: row.color,
+  paintCode: row.paint_code,
   recyclerName: row.recycler_name,
   recyclerLocation: row.recycler_location,
   recyclerPhone: row.recycler_phone,
@@ -159,6 +163,8 @@ export async function upsertListing(
     next.priceAmount ?? null,
     next.priceCurrency ?? null,
     next.priceDisplay ?? null,
+    next.color ?? null,
+    next.paintCode ?? null,
     next.recyclerName ?? null,
     next.recyclerLocation ?? null,
     next.recyclerPhone ?? null,
@@ -169,7 +175,7 @@ export async function upsertListing(
   ];
   if (!existing) {
     const id = crypto.randomUUID();
-    await sql`insert into listings (id,source,source_key,identity_method,seller_user_id,part_source_id,part_guid,vehicle_guid,stock_number,year,make_model,part,description,damage_code,grade,price_amount,price_currency,price_display,recycler_name,recycler_location,recycler_phone,image_url,photo_url,quote_url,first_seen_at,last_seen_at) values (${id},${next.source},${next.sourceKey},${next.identityMethod},${
+    await sql`insert into listings (id,source,source_key,identity_method,seller_user_id,part_source_id,part_guid,vehicle_guid,stock_number,year,make_model,part,description,damage_code,grade,price_amount,price_currency,price_display,color,paint_code,recycler_name,recycler_location,recycler_phone,image_url,photo_url,quote_url,first_seen_at,last_seen_at) values (${id},${next.source},${next.sourceKey},${next.identityMethod},${
       values[0]
     },${values[1]},${values[2]},${values[3]},${values[4]},${values[5]},${
       values[6]
@@ -177,7 +183,7 @@ export async function upsertListing(
       values[12]
     },${values[13]},${values[14]},${values[15]},${values[16]},${values[17]},${
       values[18]
-    },${values[19]},${observedAt},${observedAt})`;
+    },${values[19]},${values[20]},${values[21]},${observedAt},${observedAt})`;
     return {
       id,
       isNew: true,
@@ -206,12 +212,12 @@ export async function upsertListing(
     values[10]
   },price_amount=${values[11]},price_currency=${values[12]},price_display=${
     values[13]
-  },recycler_name=${values[14]},recycler_location=${
-    values[15]
-  },recycler_phone=${values[16]},image_url=${values[17]},photo_url=${
-    values[18]
-  },quote_url=${
+  },color=${values[14]},paint_code=${values[15]},recycler_name=${
+    values[16]
+  },recycler_location=${values[17]},recycler_phone=${values[18]},image_url=${
     values[19]
+  },photo_url=${values[20]},quote_url=${
+    values[21]
   },last_seen_at=${observedAt},updated_at=${observedAt} where id=${existing.id}`;
   return { id: existing.id, isNew: false, changedFields, changes };
 }

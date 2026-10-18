@@ -15,6 +15,8 @@ export interface NotificationPayloadDto {
     location?: string;
     stockNumber?: string;
     description?: string;
+    color?: string;
+    paintCode?: string;
     grade?: string;
     damageCode?: string;
     imageUrl?: string;

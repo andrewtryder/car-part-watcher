@@ -37,6 +37,8 @@ export interface WatchRunSummaryDto {
     grade?: string;
     stockNumber?: string;
     priceDisplay?: string;
+    color?: string;
+    paintCode?: string;
     recyclerName?: string;
     recyclerLocation?: string;
   }>;

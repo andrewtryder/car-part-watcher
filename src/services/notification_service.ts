@@ -23,6 +23,8 @@ export interface NotificationEventV1 {
     recyclerName?: string;
     stockNumber?: string;
     description?: string;
+    color?: string;
+    paintCode?: string;
     grade?: string;
     damageCode?: string;
     imageUrl?: string;
@@ -77,6 +79,8 @@ export function buildNotificationEventV1(params: {
       recyclerName: rawListing.recyclerName,
       stockNumber: rawListing.stockNumber,
       description: rawListing.description,
+      color: rawListing.color,
+      paintCode: rawListing.paintCode,
       grade: rawListing.grade,
       damageCode: rawListing.damageCode,
       imageUrl: rawListing.imageUrl,
@@ -213,6 +217,10 @@ export function parseNotificationEventV1(raw: unknown): NotificationEventV1 {
         : undefined,
       description: typeof listing.description === "string"
         ? listing.description
+        : undefined,
+      color: typeof listing.color === "string" ? listing.color : undefined,
+      paintCode: typeof listing.paintCode === "string"
+        ? listing.paintCode
         : undefined,
       grade: typeof listing.grade === "string" ? listing.grade : undefined,
       damageCode: typeof listing.damageCode === "string"
